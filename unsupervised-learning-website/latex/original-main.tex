@@ -1,0 +1,1121 @@
+\documentclass[english]{article}
+\usepackage{amsmath,amsthm,amssymb,marvosym,enumitem,makeidx,hyperref} % Only needed to generate dummy text for sample.tex
+%
+
+\renewcommand{\le}{\leqslant}
+\renewcommand{\leq}{\leqslant}
+\renewcommand{\geq}{\geqslant}
+\renewcommand{\ge}{\geqslant}
+\newcommand{\ideal}[1]{\left\langle\, #1 \,\right\rangle}
+\newcommand{\subgp}[1]{\left\langle\, #1 \,\right\rangle}
+
+\def\p{\varphi}
+\def\isomorphic{\cong}
+
+\def\Gal{\text{Gal}}
+\def\im{\text{im}}
+
+\def\normal{\vartriangleleft}
+
+\usepackage{comment}
+
+\usepackage[colorinlistoftodos]{todonotes}
+
+%% For students:
+
+%\excludecomment{hint}
+
+%% For faculty: Lines 33 and 34 should be inversely commented out, e.g., if line 33 is commented out, line 34 should not, and vice versa.
+
+%\excludecomment{proof}\excludecomment{answer}\excludecomment{solution}
+\newenvironment{solution}[1][Solution]{\begin{trivlist}\pushQED{\qed}\item[\hskip \labelsep  \bfseries #1{}.\hspace{5pt}]}{\popQED\end{trivlist}}\renewcommand{\qedsymbol}{$\checkmark$}{\newenvironment{answer}{\renewcommand\qedsymbol{$\blacklozenge$}\begin{proof}[Answer]}{\end{proof}}}\newenvironment{answer}[1][Answer]{\begin{trivlist}\pushQED{\qed}\item[\hskip \labelsep  \bfseries #1{}.\hspace{5pt}]}{\popQED\end{trivlist}}\renewcommand{\qedsymbol}{$\lozenge$}
+%\excludecomment{facnote}
+
+%\excludecomment{additionalproblem}
+
+%\excludeversion{hide}
+
+% First, provide some data about this document
+\title{%
+  Informal Notes on Unsupervised Learning \\
+  \vlarge \textbf{Clustering} \\}
+
+\author{Harsha Vardhan Tetali}
+
+
+\usepackage{multicol}
+
+\def\lcm{{\text{lcm}\,}}
+
+\usepackage{cancel,color}
+
+\def\q#1{{\color{red} {#1}}}
+
+
+
+\newenvironment{hint}{\startimportant}{}
+\def\startimportant#1\end{[{Hint:} #1]\end}
+
+\newenvironment{facnote}{\startfacnote}{}
+\def\startfacnote#1\end{\margintext{{\sc Note:} #1}\end}
+
+%% Setting up theorems
+
+\usepackage{tikz}
+\usetikzlibrary{trees,shapes}%,detheoremations}
+\renewcommand*\textcircled[1]{\tikz[baseline=(char.base)]{\node[shape=circle,draw,inner sep=2pt,color=red] (char) {#1};}}
+\tikzstyle{mynode} = [text centered]
+
+\newcommand*\crossout[1]{\tikz[baseline=(char.base)]{\node[mynode, cross out,draw] (char) {#1};}}
+
+\theoremstyle{plain}
+
+
+%% A nice way to TeX sets
+	\def\set#1{\left\{ {#1} \right\}}
+%	\def\setof#1#2{{\left\{#1\,\middle\rvert\,#2\right\}}}
+	\def\setof#1#2{{\left\{#1\,\colon\,#2\right\}}}
+	%\newcommand{\ideal}[1]{\left\langle\, #1 \,\right\rangle}
+		\def\C{{\mathbb C}}
+	\def\Z{{\mathbb Z}}
+	%\def\F{{\mathbb F}}
+	\def\bF{{\mathbb F}}
+	\def\Q{{\mathbb Q}}
+	\def\N{{\mathbb N}}
+	\def\R{{\mathbb R}}
+
+\def\h#1{{\textbf{#1}}}
+
+\begin{document}
+\maketitle
+
+\section{Unsupervised Learning}
+
+Classification without prior knowledge about the distribution of classes is termed as Unsupervised Learning. Unsupervised Learning, is modernly termed as Clustering. We discuss the following two techniques of clustering:
+\begin{enumerate}
+\item K-Means
+\item Spectral Clustering
+\end{enumerate}
+And further look at how to use them for Image Segmentation (using N-cuts and Super-pixel Segmentation) and we will also discuss the Graph Partitioning Problem. 
+
+\subsection{K-Means Clustering}
+
+In k-Means clustering, we find \textit{k} data clusters in the given \textit{m} data points. We consider each data point to be \textit{n} dimensional. As an illustration, if the data points are $\boldsymbol{x}^{(1)}, \boldsymbol{x}^{(2)},...,\boldsymbol{x}^{(m)}$ then each $\boldsymbol{x}^{(i)} \in \boldsymbol{R}^n \forall$ $i = 1,2,3,...m$. 
+
+Now let us consider an example for $k = 3, n = 2$ and $m = 60$ points. The following is a way to visualize it.
+
+\includegraphics[scale=0.5]{Data-3.jpg}
+
+Now to find the clusters, we need to derive an algorithm which will find $k$ points each representing each of the $k$ clusters. Now let us say that the point representing $i^{th}$ cluster is $\boldsymbol{\mu}^{i}$. Now to find the clusters, we define a loss function. Here the loss function can be defined as the intra-class distance function. The intra-class distance function characterizes sum of the distances of each point in the $j^{th}$ cluster from the point representing the entire cluster. To reduce the spread of the points from the point representing the entire cluster, we want to reduce this Loss Function for each of the cluster.
+Let us now mathematically write the Loss Function,
+
+\begin{equation}
+L_{j} = \sum_{\forall i: \boldsymbol{x}^{(i)} \in j^{th} cluster} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2}
+\end{equation}
+
+Now let us try to make the expression more analytic. So for that we introduce the Indicator Matrix which has the number of rows equal to the number of data points and the number of columns equal to the number of clusters. And the entries of the Matrix are either 0 or 1. The $ij^{th}$ entry of the matrix is 1 if the $i^{th}$ data point is present in the $j^{th}$ cluster and zero otherwise. We start by assuming that each data point belongs to a single cluster, we have the sum of element of each row equal to 1.
+
+The following is an illustration of 
+an indicator matrix.
+
+\bigskip
+
+$
+\begin{matrix}
+\:\;\;\;\;\;\;\; j=1 & j=2 & j=3 & j=4\:....&j=k
+\end{matrix}
+$
+
+$
+\begin{matrix}
+i = 1 \\
+i = 2 \\
+\vdots \\
+i=m \\
+\end{matrix}
+$
+$
+\begin{bmatrix}
+0 \;\;\;\;\; & 0 \;\;\;\;\; & 1 \;\;\;\;\; & 0 \;\;\;\;\; \cdots & 0 \\
+1 \;\;\;\;\; & 0 \;\;\;\;\; & 0 \;\;\;\;\; & 0 \;\;\;\;\; \cdots & 0 \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+0 \;\;\;\;\; & 0 \;\;\;\;\; & 1 \;\;\;\;\; & 0 \;\;\;\;\; \cdots & 0 \\
+\end{bmatrix}
+$
+
+If $a_{ij}$ is the ${ij}^{th}$ element of the matrix then,
+
+$
+a_{ij} =
+\begin{cases}
+1, & \text{if $\boldsymbol{x}^{(i)}$ is in the $j^{th}$ cluster} \\
+0, & \text{otherwise} \\
+\end{cases}
+$
+
+Now since the row sum of each row is 1, we have the following to hold true,
+
+\begin{equation}
+\sum_{j=1}^{k} a_{ij} = 1
+\end{equation}
+
+Now let us call the number of data points in the $j^{th}$ cluster as $n_{j}$. We can see that,
+
+\begin{equation}
+n_{j} = \sum_{i=1}^{m} a_{ij}
+\end{equation}
+
+Now with this notation of $a_{ij}$ we can write the loss function $L_{j}$ summed on all values of $i$.
+
+\begin{equation}
+L_{j} = \sum_{i=1}^{m} a_{ij} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2}
+\end{equation}
+
+Now let us, in a more precise manner, define $a_{ij}$.
+
+\begin{equation}
+a_{ij} =
+\begin{cases}
+1, & \underset{\text{all }  \boldsymbol{x}^{(i)}}{\mathrm{argmin}} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2} \\
+0, & \text{otherwise} \\
+\end{cases}
+\end{equation}
+
+In the above definition of $a_{ij}$, is calculated for every $i$ and $j$. For each value of $i$ the corresponding distance from each cluster representative point $\boldsymbol{\mu}^{(j)}$ is calculated for each $j$, and the minimum obtained over all $j$ is chosen and the corresponding value of $j$ is associated to the point, and the point then corresponds to that corresponding cluster. 
+
+Now let us try to find the point $\boldsymbol{\mu}^{(j)}$ by minimizing the loss at every cluster.
+
+We can write equation (31.4) as follows:
+
+\begin{equation}
+L_{j} = \sum_{i=1}^{m} a_{ij} (\boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)})^{\top}(\boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)})
+\end{equation}
+
+This can also be written as:
+
+\begin{equation}
+L_{j} = \sum_{i=1}^{m} a_{ij} (\boldsymbol{x}^{(i)\top}\boldsymbol{x}^{(i)} -2\boldsymbol{x}^{(i)\top}
+\boldsymbol{\mu}^{(j)}+ \boldsymbol{\mu}^{(j)\top}\boldsymbol{\mu}^{(j)})
+\end{equation}
+
+Now to find the extreme points of the function we equate the gradient with respect to $\boldsymbol{\mu}^{(j)}$ to zero, thus we get:
+
+\begin{equation}
+\nabla_{\boldsymbol{\mu}^{j}} L_{j} = 0
+\end{equation}
+Which implies:
+\begin{equation}
+\sum_{i=1}^{m} a_{ij} (-2\boldsymbol{x}^{(i)}+ 2\boldsymbol{\mu}^{(j)}) = 0
+\end{equation}
+
+This simplifies to:
+\begin{equation}
+\sum_{i=1}^{m} a_{ij}  \boldsymbol{\mu}^{(j)} = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}
+\end{equation}
+
+Since in the left hand side, the running index is not contained in $\boldsymbol{\mu}^{(j)}$, we bring it out of the summation and thus get,
+
+\begin{equation}
+\boldsymbol{\mu}^{(j)}
+\left( \sum_{i=1}^{m} a_{ij} \right)   = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}
+\end{equation}
+
+Using equation (31.3) we have,
+
+\begin{equation}
+n_{j}\boldsymbol{\mu}^{*(j)} = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}
+\end{equation}
+
+Thus we finally have,
+
+\begin{equation}
+\boldsymbol{\mu}^{*(j)} = \frac{1}{n_{j}} \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)} 
+\end{equation}
+
+To prove that the obtained extreme point is minimum we need to check the positive definiteness of Hessian matrix. 
+
+\begin{equation}
+\nabla_{\boldsymbol{\mu}^{j}}^{2} L_{j} = \nabla_{\boldsymbol{\mu}^{j}} \left(\sum_{i=1}^{m} a_{ij} (-2\boldsymbol{x}^{(i)}+ 2\boldsymbol{\mu}^{(j)})\right)= \sum_{i=1}^{m} 2a_{ij} \boldsymbol{I}
+\end{equation}
+The above is obviously a positive definite matrix.
+
+Let us now write down the algorithm for k-means. 
+\begin{enumerate}
+\item Choose $k$ arbitrary data points from the data points that we have. These k data points are considered as the initial representative points of the $k$ clusters.
+\item Now use the definition of $a_{ij}$ to find the points in each cluster.
+\item Now recalculate the representative points using equation (31.13).
+\end{enumerate}
+
+We observe that the representative points are the means of the points taken into consideration each time, thus the algorithm is named k-means.
+
+\section{Unnormalized Spectral Clustering}
+
+In this section let us have a quick glance at the concepts related to Unnormalized Spectral Clustering and then quickly derive and state the algorithm. Unnormalized Spectral Clustering is a cluster analysis technique where, we construct an undirected Graph using the data set that needs to be analyzed and then analyze the data using the mathematical properties of graph structures. The graph is constructed in a way that each data point corresponds to a node (or vertex) in the graph and the nodes are connected by edges weighed by the Similarity measure between the two data points. Note that the node is numbered in the same order as the data points, i.e. the $k$th data point forms the node $k$.
+
+\subsection{Similarity Matrix: A Quick Recall}
+
+To measure the similarity between two data points, it is a usual practice to use the Euclidean distance between the two data points. In case of the Euclidean distance, we have a strict measure of similarity, i.e. when the points are too close to each other we have the Euclidean distance very close to zero, and at zero the two points are the same. On the other hand, the dissimilarity measure can be as large as infinity. This can sometimes be very cumbersome to handle. The idea is therefore to limit the range of similarity measure, say an interval such as (0,1], where 0 indicates the utmost dissimilarity and 1 indicates equality between the two data points.
+
+There can be a wide variety of Similarity matrices, the Similarity matrix we consider, uses the following similarity measure,
+
+\begin{equation}
+w_{ij} = e^{-\frac{\| \boldsymbol{x}^{(i)}-\boldsymbol{x}^{(j)} \|^2}{2 \sigma^2}}
+\end{equation}
+
+where $w_{ij}$ is the similarity between the $i$th and $j$th data points, and the $i$th and the $j$th data points are given by $\boldsymbol{x}^{(i)}$ and $\boldsymbol{x}^{(j)}$ respectively, and $\sigma$ is a constant that decides the width of the Gaussian Kernel being used. If nodes connected with smaller values of similarity measures are also to be considered, we increase the width of the Gaussian by changing the parameter $\sigma$. In short, we choose the value of $\sigma$ so as to fix a certain range of similarity measures as significant.
+The particular choice of this function is the fact that it gives a value one when the two points are equal and as the dissimilarity increases, the distance between the two points increases and the function outputs a near zero value. Note that the above similarity measure provides the range (0,1] to indicate similarity.
+
+Now the Similarity matrix is obtained by placing these $w_{ij}$'s in a matrix, i.e. each $w_{ij}$ is placed in the $ij$th entry of the matrix.
+Therefore the similarity matrix is given by,
+
+\begin{equation}
+W = 
+\begin{bmatrix}
+w_{11} && w_{12} && w_{13} && \cdots && w_{1n} \\
+w_{21} && w_{22} && w_{23} && \cdots && w_{2n} \\
+w_{31} && w_{32} && w_{33} && \cdots && w_{3n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+w_{n1} && w_{n2} && w_{n3} && \cdots && w_{nn} \\
+\end{bmatrix}
+\end{equation}
+
+Now we observe from the formula of Similarity measure that the diagonal elements of the above matrix contains 1s as its entries, because each node is similar to itself. But then we defined that each entry signifies the weight of the edge connecting a node to another. In an unweighted graph, we do not, by definition, have self loops, i.e. there are no edges in the graph that connect a node to itself, therefore we define $w_{ii}=0$, which signifies the absence of self loops. Incorporating this additional definition, we now have the W matrix as follows.
+
+\begin{equation}
+W = 
+\begin{bmatrix}
+0 && w_{12} && w_{13} && \cdots && w_{1n} \\
+w_{21} && 0 && w_{23} && \cdots && w_{2n} \\
+w_{31} && w_{32} && 0 && \cdots && w_{3n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+w_{n1} && w_{n2} && w_{n3} && \cdots && 0 \\
+\end{bmatrix}
+\end{equation}
+
+Equation (40.3) gives the complete Similarity matrix. Also note that, the matrix W is symmetric, as the Graph is undirected, i.e. $w_{ij} = w_{ji}$.
+
+\subsection{Unnormalized Graph Laplacian: A Quick Recall}
+From the similarity matrix defined in the above subsection, let us try to derive a parameter from this matrix, and later on discuss its applicability. Let us try to multiply the above matrix with the vector $\boldsymbol{1}$, defined as,
+$\boldsymbol{1} =
+\begin{bmatrix}
+1 && 1 && 1 && \cdots && 1
+\end{bmatrix}^{\top}$ and get a new vector. Let us call each element in that vector as $d_{i}$, corresponding to the $i$th row.  
+
+\begin{equation}
+\begin{bmatrix}
+0 && w_{12} && w_{13} && \cdots && w_{1n} \\
+w_{21} && 0 && w_{23} && \cdots && w_{2n} \\
+w_{31} && w_{32} && 0 && \cdots && w_{3n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+w_{n1} && w_{n2} && w_{n3} && \cdots && 0 \\
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1 \\
+1 \\
+\vdots \\
+1 \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+d_{1} \\
+d_{2} \\
+d_{3} \\
+\vdots \\
+d_{n} \\
+\end{bmatrix}
+\end{equation}
+
+We note that each $d_{j}$ represents the sum of weights incident on the node $j$, i.e.
+
+\begin{equation}
+\sum_{\forall i, i\neq j} w_{ij} = d_{j}
+\end{equation}
+
+Now using these parameters $d_{j}$, we form a diagonal matrix D in the following manner.
+\begin{equation}
+\begin{bmatrix}
+d_{1} && 0 && 0 && \cdots && 0 \\
+0 && d_{2} && 0 && \cdots && 0 \\
+0 && 0 && d_{3} && \cdots && 0 \\
+\vdots && \vdots && \vdots && \ddots && \vdots\\
+0 && 0 && 0 && \cdots && d_{n} \\
+\end{bmatrix}
+\end{equation}
+
+Now we define the Unnormalized Graph Laplacian as follows:
+
+\begin{equation}
+L = D - W
+\end{equation}
+If we look into the elements of L, we find the following:
+
+\begin{equation}
+L =
+\begin{bmatrix}
+d_{1} && -w_{12} && -w_{13} && \cdots && -w_{1n} \\
+-w_{21} && d_{2} && -w_{23} && \cdots && -w_{2n} \\
+-w_{31} && -w_{32} && 0 && \cdots && -w_{3n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+-w_{n1} && -w_{n2} && -w_{n3} && \cdots && d_{n} \\
+\end{bmatrix}
+\end{equation}
+
+Now observe that multiplying the vector $\boldsymbol{1}$ with the matrix L gives us the vector $\boldsymbol{0}$, which implies that $\boldsymbol{1}$ is an eigenvector of L with 0 as the Eigenvalue. This results directly from equation (40.5), i.e.
+\begin{equation}
+ d_{j} - \sum_{\forall i, i\neq j} w_{ij} = 0
+\end{equation}
+
+Also observe that the Unnormalized Laplacian Matrix L is also Symmetric. We can also prove that the matrix L is positive semi definite. To prove it, let us take a vector $\boldsymbol{f}$, and try to check what $\boldsymbol{f}^{\top}L\boldsymbol{f}$ yields to be. On substituting $L = D-W$ in $\boldsymbol{f}^{\top}L\boldsymbol{f}$, we get,
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \boldsymbol{f}^{\top}(D-W)\boldsymbol{f}=
+\boldsymbol{f}^{\top}D\boldsymbol{f} - \boldsymbol{f}^{\top}W\boldsymbol{f}
+\end{equation}
+
+Now we have this above equation written as,
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} d_{ij} f_{j}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}
+\end{equation}
+
+where $d_{ij}$ is the $ij$th element of the matrix D. 
+Now we have equation (40.11) to be written as below:
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} f^{2}_{i} d_{i}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}
+\end{equation}
+
+Now we use,
+\begin{equation}
+ d_{i} = \sum_{\forall j, j\neq i} w_{ij} \end{equation}
+ and thus obtain,
+ 
+ \begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{i} w_{ij}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}
+\end{equation}
+
+we can write this above expression as,
+
+  \begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{i} w_{ij} + \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{j} w_{ij}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}
+\end{equation}
+
+Now we have,
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} \left( f^{2}_{i} w_{ij} + f^{2}_{j} w_{ij} - 2f_{i}f_{j} w_{ij} \right) = \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N}  w_{ij}\left( f_{i} - f_{j} \right)^{2} \geq 0  
+\end{equation}
+Therefore L is a Positive Semi-Definite Matrix.
+
+Since we have seen that 0 is an Eigenvalue of L (from equation (40.9)), and that L is positive semi-definite, we thus have, 0 is the smallest eigenvalue of L and the eigenvector corresponding to the smallest eigenvalue is $\boldsymbol{1}$.
+
+In matrices, spectrum of of a matrix corresponds to the eigenvalues of the matrix. And the Eigenvalue decomposition completely describes the spectrum of the matrix L. Now if we observe that if the data points form a cluster, i.e. some nodes are connected to only some other nodes and not all other nodes, then by numbering all the nodes in the same cluster in an order and then moving to the next cluster, we can get the matrix L to be of the following form.
+
+\bigskip
+
+$
+\begin{bmatrix}
+\begin{pmatrix}
+\cdots && \cdots && \cdots \\
+\vdots && L_{1}  && \vdots \\
+\cdots && \cdots && \cdots \\
+\end{pmatrix} \\
+&&\begin{pmatrix}
+\cdots && \cdots && \cdots \\
+\vdots && L_{2}  && \vdots \\
+\cdots && \cdots && \cdots \\
+\end{pmatrix} \\
+&&&&\begin{matrix}
+\ddots && \cdots \\
+\vdots && \ddots \\
+\cdots && \cdots \\
+\end{matrix} \\
+&&&&&\begin{pmatrix}
+\cdots && \cdots && \cdots \\
+\vdots && L_{k}  && \vdots \\
+\cdots && \cdots && \cdots \\
+\end{pmatrix} \\
+\end{bmatrix}
+$
+
+\bigskip
+
+Observe that the above matrix is block diagonal matrix, it so turns out because the numbering of nodes was done according to the clusters. The numbering was so done that all elements in the same cluster were given consecutive positive integers. This may not always be how the matrix is obtained, but there are methods like k-means which can help us obtain such a matrix, however we will see that we need not reorder the entire matrix, only reordering the rows of the eigenvalues will suffice. Since $\boldsymbol{1}$ is an Eigenvector of L with eigenvalue 0, when the matrix is represented as above, we can see that even the matrices $L_{1}, L_{2}, L_{3}, ..., L_{k}$ have their corresponding $\boldsymbol{1}$ vectors as Eigenvectors each with eigenvalue 0. Therefore we can form k eigenvectors with ones in the index locations corresponding to $L_{i}$ and set the rest of the elements to zero, from this we infer that the multiplicity of the eigenvalue 0 is $k$. Now we also observe that there are $k$ clusters in the graph. From all this it is evident that multiplicity of the eigenvalue 0 in the Unnormalized Laplacian Matrix gives the number of clusters in the data set.
+Each of the eigenvectors of the re-ordered Laplacian matrix looks like:
+$
+\boldsymbol{1}_{m} = \begin{bmatrix}
+0 \cdots 0 & 1 & 1 & \cdots & 1 & 1 & 0 & 0 & \cdots & 0
+\end{bmatrix}^{\top}
+$.
+Now it is rarely the case that the matrix L is of the above form. The rows of the matrix might be very scattered and the eigenvectors may look something like,
+$
+\boldsymbol{v}_{m} = \begin{bmatrix}
+1 \cdots 0 & 0 & 1 & \cdots & 0 & 1 & 0 & 0 & \cdots & 0
+\end{bmatrix}^{\top}
+$.
+Note that we have as many eigenvectors as there are the number of clusters and each eigenvector actually corresponds to a cluster. This is because, the entries of the eigenvector is 1 in all those rows where the corresponding pixel belongs to the cluster corresponding to the eigenvector. Now we use k-means algorithm to reorder the rows of the eigenvector matrix (matrix formed by stacking the eigenvectors column-wise). We store the indexes of reordering in a column vector which in turn records the cluster which each pixel belongs to.
+
+\section{Graphs Cuts or Partitioning}
+
+The following Figure \ref{fig:Graph G1} shows a graph $G$ with 11 vertexes connected with 13 edges in some chosen fashion.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[scale=0.9]{G1.png}
+\caption{Graph G}
+\label{fig:Graph G1}
+\end{figure}
+
+Now let us try to cut the above graph into the above graph into two parts. If we call one part of the Graph as $A$, then the other part of the graph can be called $\bar{A}$. In set notation we write it as: $\bar{A} = V \backslash A$
+We observe that $A \cup \bar{A} = G$ and $A \cap \bar{A} = \Phi$. We also know that $A \subset G$ and that $\bar{A} \subset G$. The following is one of the many possible ways of cutting the above graph into two sub-graphs.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[scale=0.9]{G2.png}
+\caption{Graph G cut into two sub-graphs $A$ and $\bar{A}$ by the Blue Line (Cut)}
+\label{fig:Graph G2}
+\end{figure}
+
+In the Figure \ref{fig:Graph G2} shown above, each of the sub-graph in the graph is again a graph. This cutting of a graph into two or more parts to generate sub-graphs is called Partitioning. The blue line is referred to as a Graph Cut, hence this partitioning is also referred as Graph Cuts Method.
+
+Now once the Graph Cut is done, we have to indicate the two graphs, that is done in the Figure \ref{fig:Graph G3}.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[scale=0.9]{G3.png}
+\caption{Graph G cut into two Graphs $A$ and $\bar{A}$}
+\label{fig:Graph G3}
+\end{figure}
+
+The example of cutting a graph shown above is similar to dividing the data points into two different clusters. Thus we use graph cut algorithms in understanding clustering that we mentioned in the earlier subsections. Now let us define a parameter $w(A,B)$, where $A$ and $B$ are two disjoint parts of a graph, as:
+\begin{equation}
+w(A,B) = \sum_{i \in A} \sum_{j \in B} w_{i,j}
+\end{equation}
+Now we define a cut. Let us suppose that a Graph G is partitioned into $k$ sub-graphs each denoted by $A_{i}$ for $i=1,2,3,...k$, we define a cut as:
+
+\begin{equation}
+cut(A_{1}, A_{2},...,A_{k}) = \frac{1}{2} \left[ \sum_{i=1}^{k} w(A_{i},\bar{A_{i}}) \right]
+\end{equation}
+
+In the specific case of two partitions, the value of a cut is:
+
+\begin{equation}
+cut(A,\bar{A}) = \frac{1}{2} \left[w\left( A,\bar{A} \right) + w\left( \bar{A},A \right) \right] = w\left( \bar{A},A \right)  
+\end{equation}
+
+Now let us define an even interesting term called the Ratio Cut, which will be used in deriving the Unnormalized Spectral Clustering algorithm in yet another way. 
+We define a Ratio Cut of $k$ partitions of a graph as follows:
+
+\begin{equation}
+ratio cut(A_{1},A_{2},...,A_{k}) =  \sum_{i=1}^{k} \frac{w\left( A_{i},\bar{A_{i}} \right) }{\left|A_{i}\right|} 
+\end{equation}
+where $\left|A_{i}\right|$ is the number of vertexes in $A_{i}$. 
+
+Note that, \begin{equation}
+\sum_{i=1}^{k} \left|A_{i} \right| = n
+\end{equation}
+where $n$ is the total number of vertexes.
+Using equation (40.19), we can also write equation (40.20) as:
+
+
+\begin{equation}
+ratio cut(A_{1},A_{2},...,A_{k}) =  \sum_{i=1}^{k} \frac{cut\left( A_{i},\bar{A_{i}} \right) }{\left|A_{i}\right|} 
+\end{equation}
+
+\subsection{Minimizing Ratio Cuts (for k=2)}
+
+Before going any further let us define a quantity called the Indicator Vector $\boldsymbol{f} \in \mathbb{R}^{n}$, where $n$ is the number of vertexes in the Graph. Now each element in $f_{i}$ takes a value $\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}$ or $-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}$, depending on whether $v_{i}$ belongs to $A$ or $\bar{A}$, where $v_{i}$ is a node in the given graph $G = A \cup \bar{A}$. We thus write $f_{i}$ as follows:
+
+\begin{equation}
+f_{i} = 
+\begin{cases}
+\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}, \textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}, \textnormal{ if } v_{i} \in \overline{A}
+\end{cases}
+\end{equation}
+
+Observe that $\left| A \right| + \left| \bar{A} \right| = n$.
+
+Let us, for the sake of convenience, assume that, $b = \sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}$.
+
+Now we have, equation (40.23) written as below:
+
+\begin{equation}
+f_{i} = 
+\begin{cases}
+b, \textnormal{ if } \in v_{i} \in A \\
+-\frac{1}{b}, \textnormal{ if } \in v_{i} \in \bar{A}
+\end{cases}
+\end{equation}
+
+Let us derive a property with this $b$ in the picture so as to make the later explanations easy.
+
+Consider the expression $\left( b + \frac{1}{b} \right)^{2}$.
+
+\begin{equation}
+\left( b + \frac{1}{b} \right)^{2} = \frac{(b^{2}+1)^{2}}{b^{2}}
+\end{equation}
+
+Now substituting $b$ in terms of $\left|A\right|$ and $\left|\bar{A}\right|$ we get,
+
+\begin{equation}
+\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{\left(\left|A\right|+\left|\bar{A}\right|\right)^{2}}{\left|A\right|\left|\overline{A}\right|} 
+\end{equation}
+
+\begin{equation}
+\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{n\left(\left|A\right|+\left|\bar{A}\right|\right)}{\left|A\right|\left|\overline{A}\right|} 
+\end{equation}
+
+\begin{equation}
+\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{n}{\left|A\right|} + \frac{n}{\left|\overline{A}\right|} 
+\end{equation}
+
+Therefore, we have,
+\begin{equation}
+\left(b+ \frac{1}{b} \right)^{2}= \frac{n}{\left|A\right|} + \frac{n}{\left|\overline{A}\right|} 
+\end{equation}
+
+We also see that,
+
+\begin{equation}
+b\left|A \right| - \frac{1}{b}\left|\bar{A}\right| = \sqrt{\left|A\right|\left|\bar{A}\right|}-\sqrt{\left|\bar{A}\right|\left|A\right|} = 0
+\end{equation}
+
+Also we have,
+\begin{equation}
+b^{2}\left|A\right| + \frac{1}{b^{2}}\left|\bar{A}\right| = n
+\end{equation}
+
+Keeping these results aside, let us try to look at what happens if the indicator vector $\boldsymbol{f}$ is used in calculating $\boldsymbol{f}^{\top}L\boldsymbol{f}$.
+
+We know from equation (40.16) that,
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{n} \sum_{j=1}^{n}  w_{ij}\left( f_{i} - f_{j} \right)^{2}  
+\end{equation}
+
+Now we write the above sum as two sums and add the two.
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( f_{i} - f_{j} \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( f_{i} - f_{j} \right)^{2}  \right]
+\end{equation}
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( b - \left( \frac{-1}{b} \right) \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( \left( \frac{-1}{b} \right) - b \right)^{2}  \right]
+\end{equation}
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] \left( b + \frac{1}{b}\right)^{2}
+\end{equation}
+
+Now the above can be written as,
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = cut(A,\bar{A})\left( b + \frac{1}{b}\right)^{2}
+\end{equation}
+
+Substituting equation (40.29) in the above we get,
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} =  n\left(\frac{cut(A,\bar{A})}{\left|A\right|} + \frac{cut(A,\bar{A})}{\left|\overline{A}\right|}\right)= n(ratiocut(A,\bar{A}))
+\end{equation}
+
+So we finally have,
+\begin{equation}
+\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{n} = Ratio Cut(A,\bar{A})
+\end{equation}
+
+Therefore, we infer that, the ratio cut depends on the indicator vector $\boldsymbol{f}$. Now let us try to physically interpret from the definition of Ratio Cuts. A ratio cut indicates the average weight connectivity of two graphs. It can be treated as how two partitions of the graphs are connected. Now if we minimize the ratio cut, it indicates partitioning of graphs into parts that are least connected. So the entire problem of partitioning the graph into two parts connected with the least connected weights can be reduced to minimizing the expression $\boldsymbol{f}^{\top}L\boldsymbol{f}$.
+
+Now let us have a look onto the properties of $\boldsymbol{f}$,
+
+\begin{enumerate}
+\item $\boldsymbol{f}^{\top}\boldsymbol{1} = 0$
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i=1}^{n} f_{i}
+\end{equation}
+
+Now the above expression can be written in two parts:
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i\in A} f_{i} + \sum_{j \in \bar{A}} f_{j}
+\end{equation}
+
+Using the expression in (40.24) we have,
+
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i\in A} b + \sum_{j \in \bar{A}} \left(\frac{-1}{b}\right)
+\end{equation}
+
+This boils down to:
+
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{1} = b \left|A\right| + \left|\bar{A}\right| \left(\frac{-1}{b}\right) = b\left|A\right| - \frac{1}{b}\left|\bar{A}\right|
+\end{equation}
+Using equation (40.30) in the above equation we finally get,
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{1} = b\left|A\right| - \frac{1}{b}\left|\bar{A}\right| = 0
+\end{equation}
+
+\item $\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f}$  
+\begin{equation}
+\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i=1}^{n} f_{i}^{2}
+\end{equation}
+
+\begin{equation}
+\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i \in A} f_{i}^{2} +  \sum_{j \in \bar{A}} f_{j}^{2}
+\end{equation}
+
+\begin{equation}
+\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i \in A} b^{2} +  \sum_{j \in \bar{A}} \left( \frac{1} {b}\right)^{2}
+\end{equation}
+
+\begin{equation}
+\|\boldsymbol{f}\|^{2} =\left|A\right| b^{2} +  \left|\bar{A}\right| \left( \frac{1} {b}\right)^{2}
+\end{equation}
+
+Using (40.31), the above equation gives the following,
+\begin{equation}
+\|\boldsymbol{f}\| = \sqrt{n}
+\end{equation}
+
+We however use the following equation in modifying the expression for Ratio Cuts.
+
+\begin{equation}
+\boldsymbol{f}^{\top}\boldsymbol{f} = n
+\end{equation}
+
+So the equation of ratio cut modifies to:
+
+\begin{equation}
+\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}} = Ratio Cut(A,\bar{A})
+\end{equation}
+
+\end{enumerate}
+
+Now we finally formulate the problem of minimization of the ratio cut as follows:
+
+\begin{equation}
+\underset{A \subset G}{min} RatioCut(A,\bar{A}) 
+\iff \underset{\boldsymbol{f} \in \mathbb{R}^{n}}{min} \frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}}
+\end{equation}
+
+In the above minimization problem, the vector $\boldsymbol{f}$ is subjected to:
+\begin{enumerate}
+\item $\boldsymbol{f}^{\top}\boldsymbol{1} = 0$
+\item $f_{i} = \begin{cases}
+\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}, \textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}, \textnormal{ if } v_{i} \in \overline{A}\\
+\end{cases}$
+\end{enumerate}
+
+
+Now combining the first constraint into the minimization problem and relaxing the second constraint, we get the following as the new minimization problem.
+
+\begin{equation}
+\underset{\boldsymbol{f} \in \mathbb{R}^{n},\boldsymbol{f}^{\top}\boldsymbol{1}=0}{min} \frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}}
+\end{equation}
+
+Now as we know from the Rayleigh-Ritz theorem that the eigenvector corresponding to the smallest eigenvalue solves the above minimization problem when the constraint $\boldsymbol{f}^{\top}\boldsymbol{1}=0$ is not present. Now when the constraint is present, we have 0 as the smallest eigenvalue of L, since L is Positive Semi-Definite, and the corresponding eigenvector is $\boldsymbol{1}$. Since the possibility of the eigenvector corresponding to the smallest eigenvalue is consumed, we take the eigenvector corresponding to the second smallest eigenvalue. And that minimizes the entire expression. Therefore the eigenvector corresponding to the second smallest eigenvalue divides the Graph into two partitions.
+
+\section{Ratio Cut for Arbitrary Case}
+
+Now let us consider the case of dividing the graph into $k$ partitions, i.e. the data points that were formed into a graph are to be clustered into $k$ clusters. In the previous section we have looked into the case of two clusters, i.e.$k = 2$. Let the clusters be $A_{1}, A_{2}, ..., A_{k}$, such that $A_{i} \cap A_{j} = \Phi$ and $\bigcup\limits_{i=1}^{k}A_{i}=A$. We now define $\boldsymbol{h_{j} \in \mathbb{R}^{n}}$ in such a way that,
+
+\begin{equation}
+h_{ij} = \begin{cases}
+\frac{1}{\sqrt{\left|A_{j}\right|}} \textnormal{ if } \boldsymbol{v_{i}} \in A_{j} \\
+0, \textnormal{ otherwise} \\
+\end{cases}
+\end{equation}
+where $j=1,2,3,...,k$, that is each $\boldsymbol{h_{j}}$ corresponds to a cluster. The non-zero entries of $\boldsymbol{h_{j}}$ indicate presence of the corresponding components (indicated by the index) in the cluster $j$.
+
+Now let us consider the expression  $\boldsymbol{h_{j}}^{\top}L\boldsymbol{h_{j}}$. Ignoring normalizing constant $\frac{1}{\sqrt{\left|A_{j}\right|}}$ for the time being, let us create a new vector $\boldsymbol{\bar{h}_{j}} = \sqrt{\left|A_{j}\right|} \boldsymbol{h_{j}}$ , and thus examine $\boldsymbol{\bar{h}_{j}}^{\top}L\boldsymbol{\bar{h}_{j}}$
+
+Now when there is a 1 in the entry of $\boldsymbol{\bar{h}_{j}}$, we select that row of L and all similarly select all other rows of L where the corresponding entry in $\boldsymbol{\bar{h}_{j}}$ is 1.
+This summarizes the operation $\boldsymbol{\bar{h}_{j}}^{\top}L$. Now when we post multiply by $\boldsymbol{\bar{h}_{j}}$, we find that we get an expression where the weights of all nodes within the graph are subtracted from the sum of all weights in the graph. This basically gives the value of $cut(A_{i},\bar{A}_{i})$.
+
+As an example let us consider
+\begin{equation}
+\bar{\boldsymbol{h_{j}}} = 
+\begin{bmatrix}
+1 \\
+1 \\
+0 \\
+\vdots \\
+0 \\
+\end{bmatrix}
+\end{equation}
+
+\begin{equation}
+\bar{\boldsymbol{h_{j}}}^{\top}L\bar{\boldsymbol{h_{j}}} =
+\begin{bmatrix}
+1 && 1 && 0 && \cdots && 0 \\
+\end{bmatrix}
+\begin{bmatrix}
+d_{1} && -w_{12} && -w_{13} && \cdots && -w_{1n} \\
+-w_{21} && d_{2} && -w_{23} && \cdots && -w_{2n} \\
+-w_{31} && -w_{32} && 0 && \cdots && -w_{3n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+-w_{n1} && -w_{n2} && -w_{n3} && \cdots && d_{n} \\
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1 \\
+0 \\
+\vdots \\
+0 \\
+\end{bmatrix}
+\end{equation}
+
+\begin{equation}
+\bar{\boldsymbol{h_{j}}}^{\top}L\bar{\boldsymbol{h_{j}}} = d_{1} + d_{2} - w_{12} - w_{21} = (d_{1}-w_{12}) + (d_{2}-w_{21})
+\end{equation}
+
+Now this summing up of weights incident on a node is what we refer to as a cut. So finally we see that $\boldsymbol{h_{j}}^{\top}L\boldsymbol{h_{j}}$ is the sum of cuts divided by the factor $\left|A_{j}\right|$. This is simply the value of ratio cut.
+Now we want to minimize the sum of all the terms, i.e. terms obtained by putting $j=1,2,3,..$, now again by Rayleigh Ritz theorem, we can say that the eigenvectors corresponding to the smallest k-eigenvalues will minimize the sum.
+
+\section{Normalized Spectral Clustering}
+
+\subsection{Normalized Spectral Clustering for bipartite problem}
+
+In the earlier sections we have derived and described the Unnormalized Spectral Clustering Algorithm, now in this section we try to derive the Normalized Spectral Clustering Algorithm. We thus define a term called the Normalized Cuts of a graph before we proceed any further. The following is the definition for Normalized Cuts denoted by \textit{ncut}.
+
+\begin{equation}
+ncut(A_{1},A_{2},...,A_{k}) = \sum_{i=1}^{k} \frac{w(A_{i},\bar{A}_{i})}{vol(A_{i})} = \sum_{i=1}^{k} \frac{cut(A_{i},\bar{A}_{i})}{vol(A_{i})}
+\end{equation}
+
+Where,
+\begin{equation}
+vol(A) = \sum_{i \forall i \in A} d_{i}
+\end{equation}
+is called the Volume of a subgraph $A$ and is the sum of all the weights of the edges in the graph.
+
+Similar to the previous algorithm, in this algorithm we try to minimize the Normalized cut rather than the Ratio cut. Let us start by defining elements in the indicator vectors:
+
+\begin{equation}
+f_i = \begin{cases}
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}},\textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{Vol(A)}{Vol(\bar{A})}},\textnormal{ if } v_{i} \in \bar{A} \\
+\end{cases}
+\end{equation}
+
+Therefore when the vector is viewed as a whole, we have a representation similar to the following depending on which node belongs to which part of the graph.
+
+\begin{equation}
+\boldsymbol{f} = 
+\begin{bmatrix}
+f_{1}\\
+f_{2}\\
+\vdots\\
+f_{n}\\
+\end{bmatrix} = 
+\begin{bmatrix}
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}}  \\
+-\sqrt{\frac{Vol(A)}{Vol(\bar{A})}} \\
+\vdots\\
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}}\\
+\end{bmatrix}
+\end{equation}
+
+Observe that the indicator vectors are of the size $n \times 1$ where $n$ is the number of nodes in the graph. Now let us look at what happens when we multiply the degree graph by the above indicator vector.
+
+Let us now observe the various properties of the vector $D\boldsymbol{f}$.
+
+It can be written as:
+
+\begin{equation}
+\left(D\boldsymbol{f}^{\top}\right)\boldsymbol{1} =\sum_{i\in A} d_{ii}f_{i} + \sum_{j \in \bar{A}} d_{jj}f_{j}
+\end{equation}
+
+Observing that $\sum_{i\in A} d_{ii}=Vol(A)$ and $\sum_{i\in A} d_{ii}=Vol(\bar{A})$, and substituting $\boldsymbol{f}_{i} = \sqrt{\frac{Vol(\bar{A})}{Vol(A)}} \forall i \in A$ and $\boldsymbol{f} = \sqrt{-\frac{Vol(A)}{Vol(\bar{A})}} \forall i \in \bar{A}$ in the above equation we get,
+
+\begin{equation}
+\left(D\boldsymbol{f}^{\top}\right)\boldsymbol{1} =\sum_{i\in A_{j}} d_{ii}f_{i} + \sum_{j \in \bar{A}} d_{jj}f_{j} = \sqrt{Vol(A)Vol(\bar{A})}-\sqrt{Vol(\bar{A})Vol(A)} = 0
+\end{equation}
+
+On similar lines we can see that, we get,
+\begin{equation}
+\boldsymbol{f}^{\top}D\boldsymbol{f} = vol(A)\left(\sqrt{\frac{vol(\bar{A})}{Vol(A)}}\right)^{2} + vol(\bar{A})\left(\sqrt{\frac{vol(A)}{Vol(\bar{A})}}\right)^{2} = Vol(A) + Vol(\bar{A}) = Vol(V)
+\end{equation}
+
+Now let us have a look at the quadratic form $\boldsymbol{f}^{\top}L\boldsymbol{f}$. From a previous lecture we have:
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} \left( f^{2}_{i} w_{ij} + f^{2}_{j} w_{ij} - 2f_{i}f_{j} w_{ij} \right) = \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N}  w_{ij}\left( f_{i} - f_{j} \right)^{2}
+\end{equation}
+
+Now we write the above sum as two sums and add the two.
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( f_{i} - f_{j} \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( f_{i} - f_{j} \right)^{2}  \right]
+\end{equation}
+
+Now we observe that the term $(f_{i}-f_{j})^{2}$ is same in the two sums because of the presence of the squaring expression. In either of the case the square of the difference can be evaluated as:
+
+\begin{equation}
+(f_{i}-f_{j})^{2} = \left(\sqrt{\frac{Vol(\bar{A})}{Vol(A)}} + \sqrt{\frac{Vol(A)}{Vol(\bar{A})}}\right)^{2} = \left( \frac{Vol(V)}{\sqrt{Vol(A)Vol(\bar{A})}} \right)^{2} = \frac{Vol(V)Vol(V)}{Vol(A)Vol(\bar{A})}  
+\end{equation}
+
+Therefore,
+\begin{equation}
+(f_{i}-f_{j})^{2} =
+\frac{Vol(V)}{Vol(A)} + \frac{Vol(V)}{Vol(\bar{A})} = Vol(V)\left(\frac{1}{Vol(A)} + \frac{1}{Vol(\bar{A})}\right)
+\end{equation}
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] Vol(V)\left(\frac{1}{Vol(A)} + \frac{1}{Vol(\bar{A})}\right)
+\end{equation}
+
+We know that,
+\begin{equation}
+\frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] = cut(A,\bar{A})
+\end{equation}
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = Vol(V)\left(\frac{cut(A,\bar{A})}{Vol(A)} + \frac{cut(A,\bar{A})}{Vol(\bar{A})}\right)
+\end{equation}
+
+\begin{equation}
+ncut(A,\bar{A}) = \left(\frac{cut(A,\bar{A})}{Vol(A)} + \frac{cut(A,\bar{A})}{Vol(\bar{A})}\right)
+\end{equation}
+
+\begin{equation}
+\boldsymbol{f}^{\top}L\boldsymbol{f} = Vol(V) ncut(A,\bar{A})
+\end{equation}
+
+\begin{equation}
+ncut(A,\bar{A}) =\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{Vol(V)} 
+\end{equation}
+
+Now we formulate the minimization problem as minimizing $ncut(A,\bar{A})$ over $A$, which is again the following problem:
+
+\begin{equation}
+min\textnormal{\quad} \boldsymbol{f}^{\top}L\boldsymbol{f} \textnormal{ such that } \boldsymbol{f} \textnormal{ given as per (41.3) and } \left(D\boldsymbol{f}\right)^{\top}\boldsymbol{1}=0 \textnormal{ and }  \boldsymbol{f}^{\top}D\boldsymbol{f} = Vol(V)
+\end{equation}
+
+Now we can write one of the constraint as $\boldsymbol{f}^{\top}D^{\frac{1}{2}}D^{\frac{1}{2}}\boldsymbol{f} = Vol(V)$. We now write $g=D^{\frac{1}{2}}\boldsymbol{f}$.
+
+With this new convention we can write the minimization problem as finding $\boldsymbol{g} \in \mathbb{R}^{n}$
+\begin{equation}
+\textnormal{min}\quad\boldsymbol{g}^{\top}D^{\frac{-1}{2}}LD^{\frac{-1}{2}}\boldsymbol{g} \quad   \textnormal{ s.t. }  \boldsymbol{g}^{\top}\boldsymbol{g} = Vol(V)
+\end{equation}
+
+Now we assume $L_{symm}= D^{\frac{-1}{2}}LD^{\frac{-1}{2}}$
+
+\begin{equation}
+\textnormal{min}\quad\boldsymbol{g}^{\top}L_{symm}\boldsymbol{g} \quad   \textnormal{ s.t. }  \boldsymbol{g}^{\top}\boldsymbol{g} = Vol(V)
+\end{equation}
+
+Now to minimize the expression we choose the vector $\boldsymbol{g}$ as the eigenvector corresponding to the second smallest eigenvalue of $L_{symm}$.
+
+This can also be seen as the solution to the generalized eigenvalue problem:
+
+\begin{equation}
+L\boldsymbol{f} = \lambda D\boldsymbol{f}
+\end{equation}
+
+\subsection{Normalized Spectral Clustering for $k$ Graph Partitions}
+
+Let us start by defining an element in the indicator vector in the case of $k$ graph partitions.
+
+\begin{equation}
+h_{ij} = \begin{cases}
+\frac{1}{\sqrt{Vol(A_{j})}}, \textnormal{ if } v_{j} \in A_{j} \\
+\textnormal{  \quad   }0, \textnormal{\qquad otherwise}\\
+\end{cases}
+\end{equation}
+
+So now the indicator vector appears something like below:
+
+\begin{equation}
+\boldsymbol{h_{j}} = 
+\begin{bmatrix}
+h_{ij}\\
+h_{2j}\\
+\vdots\\
+h_{nj}\\
+\end{bmatrix} = 
+\begin{bmatrix}
+\frac{1}{\sqrt{Vol(A_{j})}} \\
+0 \\
+0 \\
+\vdots \\
+\frac{1}{\sqrt{Vol(A_{j})}} \\
+\end{bmatrix}
+\end{equation}
+
+Now let us look at what will happen when we pre-multiply (the transpose of the indicator vector) and post-multiply the above indicator vector with the degree matrix $D$. We know that the degree matrix is a diagonal matrix each containing the sum of weights of incident on a node. 
+
+\begin{equation}
+\boldsymbol{h}_{j}^{\top}D\boldsymbol{h}_{j} = \sum_{i=1}^{n} d_{i}h^{2}_{ij} = \sum_{\forall i,v_{i} \in A_{j}} \frac{d_{ij}}{vol(A_{j})} = \frac{\sum_{\forall i,v_{i} \in A_{j}}d_{ij}}{vol(A_{j})}  = 1
+\end{equation}
+
+The above expression has been evaluated to one because the summation of the weights incident on each node in the graph $A_{k}$ adds up to the value $vol(A_{k})$, recall that this expression was evaluated by adding the weights incident on each node of the graph in consideration. Now let us consider the same operation above with the Laplacian matrix $L$.
+
+\begin{equation}
+\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \sum_{i=1}^{n}\sum_{k=1}^{n} h_{ij}L_{ik}h_{kj}
+\end{equation}
+
+Now for a given subgraph $A_{j}$ we have some $h_{rj}$s equaling zero, that will multiply $L_{ik}$ and we thus have the corresponding terms equaling zero. Now let us consider the case of all such $m$ such that $h_{mj}$ is non-zero, all such terms will give non-zero terms in the final expression only when other element $h_{nj}$ (for all such $n$) is also non-zero. This means that for all pairs $(m,n)$ where $h_{mj}$ and $h_{nj}$ are non-zero, we will have non-zero contributions towards the final expression. One such case is when $m=n$. All other cases are when the vertexes $v_{m}$ and $v_{n}$ belong to the subgraph under consideration, this is because when both of them belong to the same subgraph the corresponding $h_{mj}$ and $h_{nj}$ are non-zero simultaneously and thus they give a non-zero contribution to the final expression. Thus we have:
+
+\begin{equation}
+\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \frac{1}{vol(A_{j})}\left[\sum_{i \textnormal{ s.t. } v_{i} \in A_{j}}^{n} L_{ii} + \sum_{i,j \textnormal{ s.t. }v_{i},v_{j} \in A_{j}} L_{ij}\right]
+\end{equation}
+
+In the above equation the first summation becomes the sum of the diagonal elements for nodes in the subgraph $A_{j}$ and the second term comprises of the sum of the negatives of the weights connecting vertexes $v_{i}$ and $v_{j}$. Now when the total expression is evaluated the weights connecting the internal nodes of the subgraph are subtracted from the sum total of all the nodes of the subgraph. Thus what remains is the sum total of the weights connecting the subgraph $A_{j}$ and $\bar{A}_{j}$. This is called the $cut(A_{j},\bar{A}_{j})$.
+
+\begin{equation}
+\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \frac{cut(A_{j},\bar{A}_{j})}{vol(A_{j})}
+\end{equation}
+
+Now all that we need to do is to minimize the value of $ncut(A_{1}, A_{2},...,A_{n})$.
+
+Therefore,
+
+\begin{equation}
+ncut(A_{1}, A_{2},...,A_{n}) = \sum_{j=1}^{n} \boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j}
+\end{equation}
+
+Now let us create a matrix $H$ such that:
+
+\begin{equation}
+H=
+\begin{bmatrix}
+\boldsymbol{h}_{1} && \boldsymbol{h}_{2} && \cdots && \boldsymbol{h}_{n} 
+\end{bmatrix}
+\end{equation}
+where $\boldsymbol{h}_{k} \in \mathbb{R}^{n} $
+and thus $H \in \mathbb{R}^{n\times n}$.
+
+Now we can formulate the above minimization problem as the minimization of the trace of the matrix $H^{\top}LH$. Now let us formulate the constraint for the minimization problem.
+
+Before going any further let us observe some more facts. Let us make a small change in (41.7) to form the following expression:
+$\boldsymbol{h}_{i}^{\top}D\boldsymbol{h}_{j}$. Now to evaluate this expression we have we consider the fact that $\boldsymbol{h}_{i}$ is orthogonal to $\boldsymbol{h}_{j}$ for different values of $i$ and $j$. These two vectors turn out to be orthogonal because of the property that a node in the graph cannot be contained in two different subgraphs, thus resulting in different non-zero elements present in different vectors, now we can observe that on multiplying D and $\boldsymbol{h}_{j}$, we get each element of $\boldsymbol{h}_{j}$ scaled by each diagonal entry, this is because the multiplication produces a linear combination of the columns of D where the multiplying coefficient of each column in D is the corresponding element of the vector $\boldsymbol{h}_{j}$, since zero elements in the vector give no contribution towards the end multiplication result, only the diagonal elements which correspond to nonzero entries are scaled and all these when added, only result in a element-wise scaled version of each element in $\boldsymbol{h}_{j}$. Now from this, it follows that the zero-entries have not been disturbed so the vector $D\boldsymbol{h}_{j}$ is also orthogonal to $\boldsymbol{h}_{i}$. Thus we have: 
+\begin{equation}
+\boldsymbol{h}_{i}^{\top}D\boldsymbol{h}_{j} = 0
+\end{equation}
+for different values of $i$ and $j$. 
+
+From (41.7) and (41.13) we have:
+
+\begin{equation}
+\begin{bmatrix}
+\boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{1} && \boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{2} && \boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{3} && \cdots &&
+\boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{n} \\
+\boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{1} && \boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{2} && \boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{3} && \cdots &&
+\boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{n} \\
+\boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{1} && \boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{2} && \boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{3} && \cdots &&
+\boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+\boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{1} && \boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{2} && \boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{3} && \cdots &&
+\boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{n} \\
+\end{bmatrix} = 
+\begin{bmatrix}
+1 && 0 && 0 && \cdots && 0 \\
+0 && 1 && 0 && \cdots && 0 \\
+0 && 0 && 1 && \cdots && 0 \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+0 && 0 && 0 && \cdots && 1 \\
+\end{bmatrix} = \boldsymbol{I}
+\end{equation}
+
+The above can therefore be written as,
+\begin{equation}
+\begin{bmatrix}
+\boldsymbol{h_{1}}^{\top} \\
+\boldsymbol{h_{2}}^{\top} \\
+\boldsymbol{h_{3}}^{\top} \\
+\vdots \\
+\boldsymbol{h_{n}}^{\top} \\
+\end{bmatrix}
+\begin{bmatrix}
+D\boldsymbol{h}_{1} && 
+D\boldsymbol{h}_{2} && 
+D\boldsymbol{h}_{3} && \cdots &&
+D\boldsymbol{h}_{n} \\
+D\boldsymbol{h}_{1} && 
+D\boldsymbol{h}_{2} && 
+D\boldsymbol{h}_{3} && \cdots &&
+D\boldsymbol{h}_{n} \\
+D\boldsymbol{h}_{1} && 
+D\boldsymbol{h}_{2} && 
+D\boldsymbol{h}_{3} && \cdots &&
+D\boldsymbol{h}_{n} \\
+\vdots && \vdots && \vdots && \ddots && \vdots \\
+D\boldsymbol{h}_{1} && 
+D\boldsymbol{h}_{2} && 
+D\boldsymbol{h}_{3} && \cdots &&
+D\boldsymbol{h}_{n} \\
+\end{bmatrix}
+= \boldsymbol{I}
+\end{equation}
+
+The above then becomes,
+\begin{equation}
+\begin{bmatrix}
+\boldsymbol{h_{1}}^{\top} \\
+\boldsymbol{h_{2}}^{\top} \\
+\boldsymbol{h_{3}}^{\top} \\
+\vdots \\
+\boldsymbol{h_{n}}^{\top} \\
+\end{bmatrix}
+D
+\begin{bmatrix}
+\boldsymbol{h}_{1} && \boldsymbol{h}_{2} && \cdots && \boldsymbol{h}_{n} 
+\end{bmatrix} = \boldsymbol{I} 
+\end{equation}
+Therefore in compact form the we have,
+\begin{equation}
+H^{\top}DH = \boldsymbol{I}
+\end{equation}
+
+Now let us write the above expression in the following form:
+\begin{equation}
+H^{\top}D^{\frac{1}{2}}D^{\frac{1}{2}}H = \boldsymbol{I}
+\end{equation}
+Assuming $T = D^{\frac{1}{2}}H$, we have,
+
+\begin{equation}
+T^{\top}T = \boldsymbol{I}
+\end{equation}
+
+Now the optimization problem reduces to the minimization of $trace(H^{\top}LH)$ under the constraint that $T^{\top}T = \boldsymbol{I}$. Now we can convert the objective function in terms of the variables in the constraint so that we get a familiar form. So the problem can be posed as:
+
+\begin{equation}
+min \textnormal{\quad} trace (T^{\top}D^{-\frac{1}{2}}LD^{-\frac{1}{2}}T) \textnormal{ such that } T^{\top}T = \boldsymbol{I}
+\end{equation}
+
+Now assuming $D^{-\frac{1}{2}}LD^{-\frac{1}{2}}=Y$, we have the minimization problem as:
+
+\begin{equation}
+min \textnormal{\quad} trace (T^{\top}YT) \textnormal{ such that } T^{\top}T = \boldsymbol{I}
+\end{equation}
+
+Now assuming $\boldsymbol{t}_{i}$s as the column vectors in the matrix T, the above problem can be written as:
+\begin{equation}
+min \quad \sum_{j=1}^{n} \boldsymbol{t}_{j}^{\top}Y\boldsymbol{t}_{j} \textnormal{ such that } \boldsymbol{t}_{j}^{\top}\boldsymbol{t}_{j} = 1
+\end{equation}
+
+This can be easily seen that the $k$ eigenvectors corresponding to the minimum $k$ eigenvalues of matrix $D^{-\frac{1}{2}}LD^{-\frac{1}{2}}$ correctly fit in minimization of the above problem. 
+
+
+
+\end{document}%
+
+
+
+
+
+
+
+
