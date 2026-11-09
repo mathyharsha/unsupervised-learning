@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f8f7f4">
+  <meta name="description" content="Informal notes on unsupervised learning, k-means, spectral clustering, graph Laplacians, graph cuts and normalized cuts by Harsha Vardhan Tetali.">
+  <meta name="author" content="Harsha Vardhan Tetali">
+  <title>Unsupervised Learning — Informal Notes | Harsha Vardhan Tetali</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        packages: {'[+]': ['ams']},
+        inlineMath: [['\\(','\\)']],
+        displayMath: [['\\[','\\]']],
+        processEscapes: true,
+        macros: {
+          R: "\\mathbb{R}", C: "\\mathbb{C}", N: "\\mathbb{N}", Z: "\\mathbb{Z}", Q: "\\mathbb{Q}",
+          bF: "\\mathbb{F}", p: "\\varphi", le: "\\leqslant", ge: "\\geqslant",
+          subgp: ["\\left\\langle #1 \\right\\rangle", 1],
+          ideal: ["\\left\\langle #1 \\right\\rangle", 1],
+          Gal: "\\mathrm{Gal}", im: "\\mathrm{im}",
+          lcm: "\\operatorname{lcm}", normal: "\\vartriangleleft"
+        }
+      },
+      options: { ignoreHtmlClass: 'tex-ignore' },
+      chtml: {scale: 1, matchFontHeight: false},
+      startup: { pageReady: () => MathJax.startup.defaultPageReady().then(() => document.documentElement.classList.add('math-ready')) }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <script defer src="assets/app.js"></script>
+</head>
+<body>
+  <div class="read-progress" id="read-progress" aria-hidden="true"></div>
+  <a class="skip-link" href="#content">Skip to notes</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="site-brand" href="https://mathyharsha.github.io/" aria-label="Harsha Vardhan Tetali — home">
+        <span class="brand-mark">HT</span>
+        <span class="brand-name">Harsha Vardhan Tetali</span>
+      </a>
+      <div class="header-actions">
+        <a href="https://mathyharsha.github.io/" class="home-link">Personal website <span aria-hidden="true">↗</span></a>
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle color theme">
+          <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5 8.5 8.5 0 1 0 20.5 14.3Z"/></svg>
+          <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-container">
+    <aside class="left-panel" aria-label="Notes navigation">
+      <div class="sidebar-inner">
+        <div class="sidebar-title">CONTENTS</div>
+        <nav class="toc" id="toc" aria-label="Table of contents">
+          <a class="nav-item nav-h1" href="#unsupervised-learning"><span>Unsupervised Learning</span></a>
+<a class="nav-item nav-h2" href="#k-means-clustering"><span>K-Means Clustering</span></a>
+<a class="nav-item nav-h1" href="#unnormalized-spectral-clustering"><span>Unnormalized Spectral Clustering</span></a>
+<a class="nav-item nav-h2" href="#the-similarity-matrix"><span>The Similarity Matrix</span></a>
+<a class="nav-item nav-h2" href="#the-unnormalized-graph-laplacian"><span>The Unnormalized Graph Laplacian</span></a>
+<a class="nav-item nav-h1" href="#graph-cuts-and-partitioning"><span>Graph Cuts and Partitioning</span></a>
+<a class="nav-item nav-h2" href="#minimizing-ratio-cuts-for-k2"><span>Minimizing Ratio Cuts (Two Partitions)</span></a>
+<a class="nav-item nav-h1" href="#ratio-cuts-for-multiple-partitions"><span>Ratio Cuts for Multiple Partitions</span></a>
+<a class="nav-item nav-h1" href="#normalized-spectral-clustering"><span>Normalized Spectral Clustering</span></a>
+<a class="nav-item nav-h2" href="#normalized-spectral-clustering-for-two-partitions"><span>Normalized Spectral Clustering for Two Partitions</span></a>
+<a class="nav-item nav-h2" href="#normalized-spectral-clustering-for-k-partitions"><span>Normalized Spectral Clustering for \(k\) Partitions</span></a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-footer-title">About these notes</div>
+          <p>Informal derivations and worked explanations. Equations retain the numbering used in the original lecture notes.</p>
+          <a class="source-link" href="latex/main.tex">View LaTeX source <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content-column" id="content">
+      <div class="hero">
+        <div class="eyebrow"><span class="eyebrow-line"></span> MACHINE LEARNING · STUDY NOTES</div>
+        <h1 class="hero-title">Unsupervised<br><em>Learning</em></h1>
+        <p class="hero-subtitle">Informal notes on clustering, spectral methods, and graph partitioning.</p>
+        <div class="hero-meta"><span class="author-dot" aria-hidden="true"></span> Prepared by <strong>Harsha Vardhan Tetali</strong> <span class="meta-divider" aria-hidden="true"></span> Mathematical derivations &amp; illustrations</div>
+        <div class="topic-strip" aria-label="Topics covered"><span>K-means</span><span>Graph Laplacians</span><span>Spectral Clustering</span><span>Ratio &amp; Normalized Cuts</span></div>
+      </div>
+      <div class="mobile-toc"><label for="mobile-sections">Jump to a section</label><select id="mobile-sections"><option value="">Select a section…</option><option value="#unsupervised-learning">Unsupervised Learning</option>
+<option value="#k-means-clustering">— K-Means Clustering</option>
+<option value="#unnormalized-spectral-clustering">Unnormalized Spectral Clustering</option>
+<option value="#the-similarity-matrix">— The Similarity Matrix</option>
+<option value="#the-unnormalized-graph-laplacian">— The Unnormalized Graph Laplacian</option>
+<option value="#graph-cuts-and-partitioning">Graph Cuts and Partitioning</option>
+<option value="#minimizing-ratio-cuts-for-k2">— Minimizing Ratio Cuts (Two Partitions)</option>
+<option value="#ratio-cuts-for-multiple-partitions">Ratio Cuts for Multiple Partitions</option>
+<option value="#normalized-spectral-clustering">Normalized Spectral Clustering</option>
+<option value="#normalized-spectral-clustering-for-two-partitions">— Normalized Spectral Clustering for Two Partitions</option>
+<option value="#normalized-spectral-clustering-for-k-partitions">— Normalized Spectral Clustering for \(k\) Partitions</option></select></div>
+      <article class="notes-content" aria-label="Unsupervised learning notes">
+        <h1 id="unsupervised-learning">Unsupervised Learning</h1>
+
+
+<p>Unsupervised learning studies data without relying on known class labels. Clustering is one important unsupervised-learning technique. Here, we discuss two clustering methods:</p>
+
+
+<ol>
+<li><p>K-Means</p></li>
+<li><p>Spectral Clustering</p></li>
+</ol>
+
+
+<p>We also examine their connections to graph partitioning and normalized cuts, which are useful in image segmentation.</p>
+
+
+<h2 id="k-means-clustering">K-Means Clustering</h2>
+
+
+<p>In k-means clustering, we seek <em>k</em> clusters among <em>m</em> data points. We assume that each data point is <em>n</em>-dimensional. For example, let the data points be <span class="math inline">\(\boldsymbol{x}^{(1)},\boldsymbol{x}^{(2)},\ldots,\boldsymbol{x}^{(m)}\)</span>, where <span class="math inline">\(\boldsymbol{x}^{(i)}\in\mathbb{R}^n\)</span> for <span class="math inline">\(i=1,2,\ldots,m\)</span>.</p>
+
+
+<p>As an example, consider <span class="math inline">\(k = 3, n = 2\)</span> and <span class="math inline">\(m = 60\)</span> points. The following figure illustrates this setting.</p>
+
+
+<p><figure class="example-figure"><img alt="Scatter plot illustrating 60 data points for k-means clustering" loading="lazy" src="assets/Data-3.jpg"/><figcaption>Example dataset for k-means clustering.</figcaption></figure></p>
+
+
+<p>To identify the clusters, we seek <span class="math inline">\(k\)</span> representative points, one for each cluster. Let <span class="math inline">\(\boldsymbol{\mu}^{(j)}\)</span> denote the representative of the <span class="math inline">\(j^{th}\)</span> cluster. We define a loss function as the sum of squared distances between the data points in each cluster and their representative. Minimizing this loss encourages compact clusters. The loss for cluster <span class="math inline">\(j\)</span> is</p>
+
+
+<p><span class="math display" data-equation="31.1" id="eq-31-1">\[L_{j} = \sum_{\forall i: \boldsymbol{x}^{(i)} \in j^{th} cluster} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2}\tag{31.1}\]</span></p>
+
+
+<p>For a more precise formulation, introduce an indicator matrix with one row per data point and one column per cluster. Its entries are either 0 or 1. The <span class="math inline">\(ij^{th}\)</span> entry of the matrix is 1 if the <span class="math inline">\(i^{th}\)</span> data point is present in the <span class="math inline">\(j^{th}\)</span> cluster and zero otherwise. Assuming each data point belongs to exactly one cluster, the entries in each row sum to 1.</p>
+
+
+<p>The following is an illustration of an indicator matrix.</p>
+
+
+<p><span class="math inline">\(\begin{matrix}
+\:\;\;\;\;\;\;\; j=1 &amp; j=2 &amp; j=3 &amp; j=4\:....&amp;j=k
+\end{matrix}\)</span></p>
+
+
+<p><span class="math inline">\(\begin{matrix}
+i = 1 \\
+i = 2 \\
+\vdots \\
+i=m \\
+\end{matrix}\)</span> <span class="math inline">\(\begin{bmatrix}
+0 \;\;\;\;\; &amp; 0 \;\;\;\;\; &amp; 1 \;\;\;\;\; &amp; 0 \;\;\;\;\; \cdots &amp; 0 \\
+1 \;\;\;\;\; &amp; 0 \;\;\;\;\; &amp; 0 \;\;\;\;\; &amp; 0 \;\;\;\;\; \cdots &amp; 0 \\
+\vdots &amp; \vdots &amp; \vdots &amp; \ddots &amp; \vdots \\
+0 \;\;\;\;\; &amp; 0 \;\;\;\;\; &amp; 1 \;\;\;\;\; &amp; 0 \;\;\;\;\; \cdots &amp; 0 \\
+\end{bmatrix}\)</span></p>
+
+
+<p>If <span class="math inline">\(a_{ij}\)</span> is the <span class="math inline">\({ij}^{th}\)</span> element of the matrix then,</p>
+
+
+<p><span class="math inline">\(a_{ij} =
+\begin{cases}
+1, &amp; \text{if $\boldsymbol{x}^{(i)}$ is in the $j^{th}$ cluster} \\
+0, &amp; \text{otherwise} \\
+\end{cases}\)</span></p>
+
+
+<p>Because each row sums to 1, we have</p>
+
+
+<p><span class="math display" data-equation="31.2" id="eq-31-2">\[\sum_{j=1}^{k} a_{ij} = 1\tag{31.2}\]</span></p>
+
+
+<p>Let the number of data points in the <span class="math inline">\(j^{th}\)</span> cluster as <span class="math inline">\(n_{j}\)</span>. We can see that,</p>
+
+
+<p><span class="math display" data-equation="31.3" id="eq-31-3">\[n_{j} = \sum_{i=1}^{m} a_{ij}\tag{31.3}\]</span></p>
+
+
+<p>With this notation for <span class="math inline">\(a_{ij}\)</span> we can write the loss function <span class="math inline">\(L_{j}\)</span> summed on all values of <span class="math inline">\(i\)</span>.</p>
+
+
+<p><span class="math display" data-equation="31.4" id="eq-31-4">\[L_{j} = \sum_{i=1}^{m} a_{ij} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2}\tag{31.4}\]</span></p>
+
+
+<p>More precisely, define <span class="math inline">\(a_{ij}\)</span>.</p>
+
+
+<p><span class="math display" data-equation="31.5" id="eq-31-5">\[a_{ij} =
+\begin{cases}
+1, &amp; \underset{\text{all }  \boldsymbol{x}^{(i)}}{\mathrm{argmin}} \| \boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)} \|^{2} \\
+0, &amp; \text{otherwise} \\
+\end{cases}\tag{31.5}\]</span></p>
+
+
+<p>In the above definition of <span class="math inline">\(a_{ij}\)</span>, is calculated for every <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>. For each value of <span class="math inline">\(i\)</span> the distance to each cluster representative <span class="math inline">\(\boldsymbol{\mu}^{(j)}\)</span> is calculated for each <span class="math inline">\(j\)</span>, and the minimum over all <span class="math inline">\(j\)</span> is chosen and the corresponding value of <span class="math inline">\(j\)</span> is associated to the point, thereby assigning the point to that cluster.</p>
+
+
+<p>Next, we find the point <span class="math inline">\(\boldsymbol{\mu}^{(j)}\)</span> by minimizing the loss within each cluster.</p>
+
+
+<p>We can write <a class="equation-ref" href="#eq-31-4">equation (31.4)</a> as follows:</p>
+
+
+<p><span class="math display" data-equation="31.6" id="eq-31-6">\[L_{j} = \sum_{i=1}^{m} a_{ij} (\boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)})^{\top}(\boldsymbol{x}^{(i)} - \boldsymbol{\mu}^{(j)})\tag{31.6}\]</span></p>
+
+
+<p>This can also be written as:</p>
+
+
+<p><span class="math display" data-equation="31.7" id="eq-31-7">\[L_{j} = \sum_{i=1}^{m} a_{ij} (\boldsymbol{x}^{(i)\top}\boldsymbol{x}^{(i)} -2\boldsymbol{x}^{(i)\top}
+\boldsymbol{\mu}^{(j)}+ \boldsymbol{\mu}^{(j)\top}\boldsymbol{\mu}^{(j)})\tag{31.7}\]</span></p>
+
+
+<p>To find the stationary points, we set the gradient with respect to <span class="math inline">\(\boldsymbol{\mu}^{(j)}\)</span> to zero:</p>
+
+
+<p><span class="math display" data-equation="31.8" id="eq-31-8">\[\nabla_{\boldsymbol{\mu}^{j}} L_{j} = 0\tag{31.8}\]</span> Which implies: <span class="math display" data-equation="31.9" id="eq-31-9">\[\sum_{i=1}^{m} a_{ij} (-2\boldsymbol{x}^{(i)}+ 2\boldsymbol{\mu}^{(j)}) = 0\tag{31.9}\]</span></p>
+
+
+<p>This simplifies to: <span class="math display" data-equation="31.10" id="eq-31-10">\[\sum_{i=1}^{m} a_{ij}  \boldsymbol{\mu}^{(j)} = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}\tag{31.10}\]</span></p>
+
+
+<p>On the left-hand side, the summation index does not occur in <span class="math inline">\(\boldsymbol{\mu}^{(j)}\)</span>, so we can move it outside the summation:</p>
+
+
+<p><span class="math display" data-equation="31.11" id="eq-31-11">\[\boldsymbol{\mu}^{(j)}
+\left( \sum_{i=1}^{m} a_{ij} \right)   = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}\tag{31.11}\]</span></p>
+
+
+<p>Using <a class="equation-ref" href="#eq-31-3">equation (31.3)</a> we have,</p>
+
+
+<p><span class="math display" data-equation="31.12" id="eq-31-12">\[n_{j}\boldsymbol{\mu}^{*(j)} = \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}\tag{31.12}\]</span></p>
+
+
+<p>Thus we finally have,</p>
+
+
+<p><span class="math display" data-equation="31.13" id="eq-31-13">\[\boldsymbol{\mu}^{*(j)} = \frac{1}{n_{j}} \sum_{i=1}^{m} a_{ij}\boldsymbol{x}^{(i)}\tag{31.13}\]</span></p>
+
+
+<p>To show that the stationary point is a minimum, we examine the Hessian.</p>
+
+
+<p><span class="math display" data-equation="31.14" id="eq-31-14">\[\nabla_{\boldsymbol{\mu}^{j}}^{2} L_{j} = \nabla_{\boldsymbol{\mu}^{j}} \left(\sum_{i=1}^{m} a_{ij} (-2\boldsymbol{x}^{(i)}+ 2\boldsymbol{\mu}^{(j)})\right)= \sum_{i=1}^{m} 2a_{ij} \boldsymbol{I}\tag{31.14}\]</span> This matrix is positive definite when the cluster is nonempty.</p>
+
+
+<p>Let us now write down the algorithm for k-means.</p>
+
+
+<ol>
+<li><p>Choose <span class="math inline">\(k\)</span> arbitrary data points from the data points that we have. These k data points are considered as the initial representative points of the <span class="math inline">\(k\)</span> clusters.</p></li>
+<li><p>Use the definition of <span class="math inline">\(a_{ij}\)</span> to find the points in each cluster.</p></li>
+<li><p>Recalculate the representative points using <a class="equation-ref" href="#eq-31-13">equation (31.13)</a>.</p></li>
+</ol>
+
+
+<p>Because each representative is updated to the mean of the points assigned to its cluster, the algorithm is called k-means.</p>
+
+
+<h1 id="unnormalized-spectral-clustering">Unnormalized Spectral Clustering</h1>
+
+
+<p>We begin by recalling the ingredients of unnormalized spectral clustering and then derive the algorithm. Unnormalized spectral clustering constructs an undirected graph from the dataset and uses its mathematical properties to identify clusters. The graph is constructed in a way that each data point corresponds to a node (or vertex) in the graph and the nodes are connected by edges weighted by a similarity measure between the two data points. The nodes are numbered in the same order as the data points, i.e. the <span class="math inline">\(k\)</span>th data point forms the node <span class="math inline">\(k\)</span>.</p>
+
+
+<h2 id="the-similarity-matrix">The Similarity Matrix</h2>
+
+
+<p>To measure the similarity between two data points, it is common to use the Euclidean distance between the two data points. For Euclidean distance, we obtain a measure of dissimilarity, i.e. when the points are too close to each other we have the Euclidean distance very close to zero, and at zero the two points are the same. On the other hand, the distance is unbounded above. This can be inconvenient. The idea is therefore to limit the range of similarity measure, say an interval such as (0,1], where 0 indicates the utmost dissimilarity and 1 indicates equality between the two data points.</p>
+
+
+<p>There are many possible similarity matrices. Here we use the Gaussian similarity measure</p>
+
+
+<p><span class="math display" data-equation="40.1" id="eq-40-1">\[w_{ij} = e^{-\frac{\| \boldsymbol{x}^{(i)}-\boldsymbol{x}^{(j)} \|^2}{2 \sigma^2}}\tag{40.1}\]</span></p>
+
+
+<p>where <span class="math inline">\(w_{ij}\)</span> is the similarity between the <span class="math inline">\(i\)</span>th and <span class="math inline">\(j\)</span>th data points, and the <span class="math inline">\(i\)</span>th and the <span class="math inline">\(j\)</span>th data points are given by <span class="math inline">\(\boldsymbol{x}^{(i)}\)</span> and <span class="math inline">\(\boldsymbol{x}^{(j)}\)</span> respectively, and <span class="math inline">\(\sigma\)</span> is a constant that decides the width of the Gaussian kernel. If nodes connected with smaller values of similarity measures are also to be considered, we increase the width of the Gaussian by changing the parameter <span class="math inline">\(\sigma\)</span>. In short, we choose the value of <span class="math inline">\(\sigma\)</span> so as to fix a certain range of similarity measures as significant. This function is useful because it gives a value one when the two points are equal and as the dissimilarity increases, the distance between the two points increases and the function outputs a near zero value. Note that the above similarity measure provides the range (0,1] to indicate similarity.</p>
+
+
+<p>The similarity matrix is formed by placing these <span class="math inline">\(w_{ij}\)</span>’s in a matrix, i.e. each <span class="math inline">\(w_{ij}\)</span> is placed in the <span class="math inline">\(ij\)</span>th entry of the matrix. Thus, the similarity matrix is</p>
+
+
+<p><span class="math display" data-equation="40.2" id="eq-40-2">\[W = 
+\begin{bmatrix}
+w_{11} &amp;&amp; w_{12} &amp;&amp; w_{13} &amp;&amp; \cdots &amp;&amp; w_{1n} \\
+w_{21} &amp;&amp; w_{22} &amp;&amp; w_{23} &amp;&amp; \cdots &amp;&amp; w_{2n} \\
+w_{31} &amp;&amp; w_{32} &amp;&amp; w_{33} &amp;&amp; \cdots &amp;&amp; w_{3n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+w_{n1} &amp;&amp; w_{n2} &amp;&amp; w_{n3} &amp;&amp; \cdots &amp;&amp; w_{nn} \\
+\end{bmatrix}\tag{40.2}\]</span></p>
+
+
+<p>The similarity formula gives diagonal entries equal to 1, because each node is similar to itself. But then we defined that each entry signifies the weight of the edge connecting a node to another. In an unweighted graph, we do not, by definition, have self loops, i.e. there are no edges in the graph that connect a node to itself, so we define <span class="math inline">\(w_{ii}=0\)</span>, which signifies the absence of self loops. Incorporating this additional definition, we now have the W matrix as follows.</p>
+
+
+<p><span class="math display" data-equation="40.3" id="eq-40-3">\[W = 
+\begin{bmatrix}
+0 &amp;&amp; w_{12} &amp;&amp; w_{13} &amp;&amp; \cdots &amp;&amp; w_{1n} \\
+w_{21} &amp;&amp; 0 &amp;&amp; w_{23} &amp;&amp; \cdots &amp;&amp; w_{2n} \\
+w_{31} &amp;&amp; w_{32} &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; w_{3n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+w_{n1} &amp;&amp; w_{n2} &amp;&amp; w_{n3} &amp;&amp; \cdots &amp;&amp; 0 \\
+\end{bmatrix}\tag{40.3}\]</span></p>
+
+
+<p><a class="equation-ref" href="#eq-40-3">Equation (40.3)</a> gives the complete Similarity matrix. The matrix W is symmetric, as the Graph is undirected, i.e. <span class="math inline">\(w_{ij} = w_{ji}\)</span>.</p>
+
+
+<h2 id="the-unnormalized-graph-laplacian">The Unnormalized Graph Laplacian</h2>
+
+
+<p>We now derive a useful quantity from the similarity matrix. Multiply this matrix by the vector <span class="math inline">\(\boldsymbol{1}\)</span>, defined as, <span class="math inline">\(\boldsymbol{1} =
+\begin{bmatrix}
+1 &amp;&amp; 1 &amp;&amp; 1 &amp;&amp; \cdots &amp;&amp; 1
+\end{bmatrix}^{\top}\)</span> and get a new vector. Let us call each element in that vector as <span class="math inline">\(d_{i}\)</span>, corresponding to the <span class="math inline">\(i\)</span>th row.</p>
+
+
+<p><span class="math display" data-equation="40.4" id="eq-40-4">\[\begin{bmatrix}
+0 &amp;&amp; w_{12} &amp;&amp; w_{13} &amp;&amp; \cdots &amp;&amp; w_{1n} \\
+w_{21} &amp;&amp; 0 &amp;&amp; w_{23} &amp;&amp; \cdots &amp;&amp; w_{2n} \\
+w_{31} &amp;&amp; w_{32} &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; w_{3n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+w_{n1} &amp;&amp; w_{n2} &amp;&amp; w_{n3} &amp;&amp; \cdots &amp;&amp; 0 \\
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1 \\
+1 \\
+\vdots \\
+1 \\
+\end{bmatrix}
+= 
+\begin{bmatrix}
+d_{1} \\
+d_{2} \\
+d_{3} \\
+\vdots \\
+d_{n} \\
+\end{bmatrix}\tag{40.4}\]</span></p>
+
+
+<p>Each <span class="math inline">\(d_{j}\)</span> represents the sum of weights incident on the node <span class="math inline">\(j\)</span>, i.e.</p>
+
+
+<p><span class="math display" data-equation="40.5" id="eq-40-5">\[\sum_{\forall i, i\neq j} w_{ij} = d_{j}\tag{40.5}\]</span></p>
+
+
+<p>Using these values <span class="math inline">\(d_{j}\)</span>, we form a diagonal matrix D in the following manner. <span class="math display" data-equation="40.6" id="eq-40-6">\[\begin{bmatrix}
+d_{1} &amp;&amp; 0 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 0 \\
+0 &amp;&amp; d_{2} &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 0 \\
+0 &amp;&amp; 0 &amp;&amp; d_{3} &amp;&amp; \cdots &amp;&amp; 0 \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots\\
+0 &amp;&amp; 0 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; d_{n} \\
+\end{bmatrix}\tag{40.6}\]</span></p>
+
+
+<p>Define the unnormalized graph Laplacian by</p>
+
+
+<p><span class="math display" data-equation="40.7" id="eq-40-7">\[L = D - W\tag{40.7}\]</span> Its entries are</p>
+
+
+<p><span class="math display" data-equation="40.8" id="eq-40-8">\[L =
+\begin{bmatrix}
+d_{1} &amp;&amp; -w_{12} &amp;&amp; -w_{13} &amp;&amp; \cdots &amp;&amp; -w_{1n} \\
+-w_{21} &amp;&amp; d_{2} &amp;&amp; -w_{23} &amp;&amp; \cdots &amp;&amp; -w_{2n} \\
+-w_{31} &amp;&amp; -w_{32} &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; -w_{3n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+-w_{n1} &amp;&amp; -w_{n2} &amp;&amp; -w_{n3} &amp;&amp; \cdots &amp;&amp; d_{n} \\
+\end{bmatrix}\tag{40.8}\]</span></p>
+
+
+<p>Now observe that multiplying the vector <span class="math inline">\(\boldsymbol{1}\)</span> with the matrix L gives us the vector <span class="math inline">\(\boldsymbol{0}\)</span>, which implies that <span class="math inline">\(\boldsymbol{1}\)</span> is an eigenvector of L with 0 as the eigenvalue. This results directly from <a class="equation-ref" href="#eq-40-5">equation (40.5)</a>, i.e. <span class="math display" data-equation="40.9" id="eq-40-9">\[d_{j} - \sum_{\forall i, i\neq j} w_{ij} = 0\tag{40.9}\]</span></p>
+
+
+<p>The unnormalized Laplacian <span class="math inline">\(L\)</span> is also symmetric. We can also show that <span class="math inline">\(L\)</span> is positive semidefinite. To prove it, let us take a vector <span class="math inline">\(\boldsymbol{f}\)</span>, and try to check what <span class="math inline">\(\boldsymbol{f}^{\top}L\boldsymbol{f}\)</span> yields to be. On substituting <span class="math inline">\(L = D-W\)</span> in <span class="math inline">\(\boldsymbol{f}^{\top}L\boldsymbol{f}\)</span>, we get,</p>
+
+
+<p><span class="math display" data-equation="40.10" id="eq-40-10">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \boldsymbol{f}^{\top}(D-W)\boldsymbol{f}=
+\boldsymbol{f}^{\top}D\boldsymbol{f} - \boldsymbol{f}^{\top}W\boldsymbol{f}\tag{40.10}\]</span></p>
+
+
+<p>Now we have this above equation written as, <span class="math display" data-equation="40.11" id="eq-40-11">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} d_{ij} f_{j}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}\tag{40.11}\]</span></p>
+
+
+<p>where <span class="math inline">\(d_{ij}\)</span> is the <span class="math inline">\(ij\)</span>th element of the matrix D. Now we have <a class="equation-ref" href="#eq-40-11">equation (40.11)</a> to be written as below:</p>
+
+
+<p><span class="math display" data-equation="40.12" id="eq-40-12">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} f^{2}_{i} d_{i}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}\tag{40.12}\]</span></p>
+
+
+<p>Now we use, <span class="math display" data-equation="40.13" id="eq-40-13">\[d_{i} = \sum_{\forall j, j\neq i} w_{ij}\tag{40.13}\]</span> and thus obtain,</p>
+
+
+<p><span class="math display" data-equation="40.14" id="eq-40-14">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{i} w_{ij}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}\tag{40.14}\]</span></p>
+
+
+<p>we can write this above expression as,</p>
+
+
+<p><span class="math display" data-equation="40.15" id="eq-40-15">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{i} w_{ij} + \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} f^{2}_{j} w_{ij}
+- \sum_{i=1}^{N} \sum_{j=1}^{N} f_{i} w_{ij} f_{j}\tag{40.15}\]</span></p>
+
+
+<p>Now we have, <span class="math display" data-equation="40.16" id="eq-40-16">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} \left( f^{2}_{i} w_{ij} + f^{2}_{j} w_{ij} - 2f_{i}f_{j} w_{ij} \right) = \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N}  w_{ij}\left( f_{i} - f_{j} \right)^{2} \geqslant 0\tag{40.16}\]</span> Therefore L is a positive semidefinite matrix.</p>
+
+
+<p>Since we have seen that 0 is an eigenvalue of L (from <a class="equation-ref" href="#eq-40-9">equation (40.9)</a>), and that L is positive semi-definite, we thus have, 0 is the smallest eigenvalue of L and the eigenvector corresponding to the smallest eigenvalue is <span class="math inline">\(\boldsymbol{1}\)</span>.</p>
+
+
+<p>The spectrum of a matrix is the set of its eigenvalues. And the eigenvalue decomposition completely describes the spectrum of the matrix L. Now if we observe that if the data points form a cluster, i.e. some nodes are connected to only some other nodes and not all other nodes, then by numbering all the nodes in the same cluster in an order and then moving to the next cluster, we can get the matrix L to be of the following form.</p>
+
+
+<p><span class="math inline">\(\begin{bmatrix}
+\begin{pmatrix}
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\vdots &amp;&amp; L_{1}  &amp;&amp; \vdots \\
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\end{pmatrix} \\
+&amp;&amp;\begin{pmatrix}
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\vdots &amp;&amp; L_{2}  &amp;&amp; \vdots \\
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\end{pmatrix} \\
+&amp;&amp;&amp;&amp;\begin{matrix}
+\ddots &amp;&amp; \cdots \\
+\vdots &amp;&amp; \ddots \\
+\cdots &amp;&amp; \cdots \\
+\end{matrix} \\
+&amp;&amp;&amp;&amp;&amp;\begin{pmatrix}
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\vdots &amp;&amp; L_{k}  &amp;&amp; \vdots \\
+\cdots &amp;&amp; \cdots &amp;&amp; \cdots \\
+\end{pmatrix} \\
+\end{bmatrix}\)</span></p>
+
+
+<p>Observe that the above matrix is block diagonal matrix, it so turns out because the numbering of nodes was done according to the clusters. The numbering was so done that all elements in the same cluster were given consecutive positive integers. This may not always be how the matrix is obtained, but there are methods like k-means which can help us obtain such a matrix, however we will see that we need not reorder the entire matrix, only reordering the rows of the eigenvalues will suffice. Since <span class="math inline">\(\boldsymbol{1}\)</span> is an eigenvector of L with eigenvalue 0, when the matrix is represented as above, we can see that even the matrices <span class="math inline">\(L_{1}, L_{2}, L_{3}, ..., L_{k}\)</span> have their corresponding <span class="math inline">\(\boldsymbol{1}\)</span> vectors as Eigenvectors each with eigenvalue 0. Therefore we can form k eigenvectors with ones in the index locations corresponding to <span class="math inline">\(L_{i}\)</span> and set the rest of the elements to zero, from this we infer that the multiplicity of the eigenvalue 0 is <span class="math inline">\(k\)</span>. Now we also observe that there are <span class="math inline">\(k\)</span> clusters in the graph. From all this it is evident that multiplicity of the eigenvalue 0 in the Unnormalized Laplacian Matrix gives the number of clusters in the data set. Each of the eigenvectors of the re-ordered Laplacian matrix looks like: <span class="math inline">\(\boldsymbol{1}_{m} = \begin{bmatrix}
+0 \cdots 0 &amp; 1 &amp; 1 &amp; \cdots &amp; 1 &amp; 1 &amp; 0 &amp; 0 &amp; \cdots &amp; 0
+\end{bmatrix}^{\top}\)</span>. Now it is rarely the case that the matrix L is of the above form. The rows of the matrix might be very scattered and the eigenvectors may look something like, <span class="math inline">\(\boldsymbol{v}_{m} = \begin{bmatrix}
+1 \cdots 0 &amp; 0 &amp; 1 &amp; \cdots &amp; 0 &amp; 1 &amp; 0 &amp; 0 &amp; \cdots &amp; 0
+\end{bmatrix}^{\top}\)</span>. Note that we have as many eigenvectors as there are the number of clusters and each eigenvector actually corresponds to a cluster. This is because, the entries of the eigenvector is 1 in all those rows where the corresponding pixel belongs to the cluster corresponding to the eigenvector. Now we use k-means algorithm to reorder the rows of the eigenvector matrix (matrix formed by stacking the eigenvectors column-wise). We store the indices of reordering in a column vector which records the cluster which each pixel belongs to.</p>
+
+
+<h1 id="graph-cuts-and-partitioning">Graph Cuts and Partitioning</h1>
+
+
+<p>Figure <a data-reference="fig:Graph G1" data-reference-type="ref" href="#figure-1">1</a> shows a graph <span class="math inline">\(G\)</span> with 11 vertices connected with 13 edges in some chosen fashion.</p>
+
+
+<figure id="figure-1">
+<img alt="Graph before partitioning" decoding="async" loading="lazy" src="assets/G1.png"/>
+<figcaption>Figure 1 · Graph G</figcaption>
+</figure>
+
+
+<p>We now partition this graph into two parts. If we call one part of the Graph as <span class="math inline">\(A\)</span>, then the other part of the graph can be called <span class="math inline">\(\bar{A}\)</span>. In set notation we write it as: <span class="math inline">\(\bar{A} = V \backslash A\)</span> We observe that <span class="math inline">\(A \cup \bar{A} = G\)</span> and <span class="math inline">\(A \cap \bar{A} = \Phi\)</span>. We also know that <span class="math inline">\(A \subset G\)</span> and that <span class="math inline">\(\bar{A} \subset G\)</span>. One possible partition is shown below.</p>
+
+
+<figure id="figure-2">
+<img alt="Graph with partition marked by a blue cut" decoding="async" loading="lazy" src="assets/G2.png"/>
+<figcaption>Figure 2 · Graph G cut into two subgraphs <span class="math inline">\(A\)</span> and <span class="math inline">\(\bar{A}\)</span> by the blue line (cut)</figcaption>
+</figure>
+
+
+<p>In the Figure <a data-reference="fig:Graph G2" data-reference-type="ref" href="#figure-2">2</a> shown above, each of the subgraph in the graph is again a graph. This cutting of a graph into two or more parts to generate subgraphs is called Partitioning. The blue line is referred to as a Graph Cut, hence this partitioning is also referred to as graph-cut method.</p>
+
+
+<p>The resulting two subgraphs are shown in Figure <a data-reference="fig:Graph G3" data-reference-type="ref" href="#figure-3">3</a>.</p>
+
+
+<figure id="figure-3">
+<img alt="Two partitions of the graph" decoding="async" loading="lazy" src="assets/G3.png"/>
+<figcaption>Figure 3 · Graph G cut into two Graphs <span class="math inline">\(A\)</span> and <span class="math inline">\(\bar{A}\)</span></figcaption>
+</figure>
+
+
+<p>The example of cutting a graph shown above is similar to dividing the data points into two different clusters. Thus we use graph cut algorithms in understanding clustering that we mentioned in the earlier subsections. Now let us define a parameter <span class="math inline">\(w(A,B)\)</span>, where <span class="math inline">\(A\)</span> and <span class="math inline">\(B\)</span> are two disjoint parts of a graph, as: <span class="math display" data-equation="40.17" id="eq-40-17">\[w(A,B) = \sum_{i \in A} \sum_{j \in B} w_{i,j}\tag{40.17}\]</span> Now we define a cut. Let us suppose that a Graph G is partitioned into <span class="math inline">\(k\)</span> subgraphs each denoted by <span class="math inline">\(A_{i}\)</span> for <span class="math inline">\(i=1,2,3,...k\)</span>, we define a cut as:</p>
+
+
+<p><span class="math display" data-equation="40.18" id="eq-40-18">\[cut(A_{1}, A_{2},...,A_{k}) = \frac{1}{2} \left[ \sum_{i=1}^{k} w(A_{i},\bar{A_{i}}) \right]\tag{40.18}\]</span></p>
+
+
+<p>In the specific case of two partitions, the value of a cut is:</p>
+
+
+<p><span class="math display" data-equation="40.19" id="eq-40-19">\[cut(A,\bar{A}) = \frac{1}{2} \left[w\left( A,\bar{A} \right) + w\left( \bar{A},A \right) \right] = w\left( \bar{A},A \right)\tag{40.19}\]</span></p>
+
+
+<p>We now define the ratio cut, which will be used in deriving the unnormalized spectral clustering algorithm in yet another way. We define a ratio cut of <span class="math inline">\(k\)</span> partitions of a graph as follows:</p>
+
+
+<p><span class="math display" data-equation="40.20" id="eq-40-20">\[ratio cut(A_{1},A_{2},...,A_{k}) =  \sum_{i=1}^{k} \frac{w\left( A_{i},\bar{A_{i}} \right) }{\left|A_{i}\right|}\tag{40.20}\]</span> where <span class="math inline">\(\left|A_{i}\right|\)</span> is the number of vertices in <span class="math inline">\(A_{i}\)</span>.</p>
+
+
+<p>Note that, <span class="math display" data-equation="40.21" id="eq-40-21">\[\sum_{i=1}^{k} \left|A_{i} \right| = n\tag{40.21}\]</span> where <span class="math inline">\(n\)</span> is the total number of vertices. Using <a class="equation-ref" href="#eq-40-19">equation (40.19)</a>, we can also write <a class="equation-ref" href="#eq-40-20">equation (40.20)</a> as:</p>
+
+
+<p><span class="math display" data-equation="40.22" id="eq-40-22">\[ratio cut(A_{1},A_{2},...,A_{k}) =  \sum_{i=1}^{k} \frac{cut\left( A_{i},\bar{A_{i}} \right) }{\left|A_{i}\right|}\tag{40.22}\]</span></p>
+
+
+<h2 id="minimizing-ratio-cuts-for-k2">Minimizing Ratio Cuts (Two Partitions)</h2>
+
+
+<p>Before going any further let us define a quantity called the indicator vector <span class="math inline">\(\boldsymbol{f} \in \mathbb{R}^{n}\)</span>, where <span class="math inline">\(n\)</span> is the number of vertices in the Graph. Now each element in <span class="math inline">\(f_{i}\)</span> takes a value <span class="math inline">\(\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}\)</span> or <span class="math inline">\(-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}\)</span>, depending on whether <span class="math inline">\(v_{i}\)</span> belongs to <span class="math inline">\(A\)</span> or <span class="math inline">\(\bar{A}\)</span>, where <span class="math inline">\(v_{i}\)</span> is a node in the given graph <span class="math inline">\(G = A \cup \bar{A}\)</span>. We thus write <span class="math inline">\(f_{i}\)</span> as follows:</p>
+
+
+<p><span class="math display" data-equation="40.23" id="eq-40-23">\[f_{i} = 
+\begin{cases}
+\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}, \textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}, \textnormal{ if } v_{i} \in \overline{A}
+\end{cases}\tag{40.23}\]</span></p>
+
+
+<p>Observe that <span class="math inline">\(\left| A \right| + \left| \bar{A} \right| = n\)</span>.</p>
+
+
+<p>Let us, for the sake of convenience, assume that, <span class="math inline">\(b = \sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}\)</span>.</p>
+
+
+<p>Now we have, <a class="equation-ref" href="#eq-40-23">equation (40.23)</a> written as below:</p>
+
+
+<p><span class="math display" data-equation="40.24" id="eq-40-24">\[f_{i} = 
+\begin{cases}
+b, \textnormal{ if } \in v_{i} \in A \\
+-\frac{1}{b}, \textnormal{ if } \in v_{i} \in \bar{A}
+\end{cases}\tag{40.24}\]</span></p>
+
+
+<p>Let us derive a property with this <span class="math inline">\(b\)</span> in the picture so as to make the later explanations easy.</p>
+
+
+<p>Consider the expression <span class="math inline">\(\left( b + \frac{1}{b} \right)^{2}\)</span>.</p>
+
+
+<p><span class="math display" data-equation="40.25" id="eq-40-25">\[\left( b + \frac{1}{b} \right)^{2} = \frac{(b^{2}+1)^{2}}{b^{2}}\tag{40.25}\]</span></p>
+
+
+<p>Now substituting <span class="math inline">\(b\)</span> in terms of <span class="math inline">\(\left|A\right|\)</span> and <span class="math inline">\(\left|\bar{A}\right|\)</span> we get,</p>
+
+
+<p><span class="math display" data-equation="40.26" id="eq-40-26">\[\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{\left(\left|A\right|+\left|\bar{A}\right|\right)^{2}}{\left|A\right|\left|\overline{A}\right|}\tag{40.26}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.27" id="eq-40-27">\[\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{n\left(\left|A\right|+\left|\bar{A}\right|\right)}{\left|A\right|\left|\overline{A}\right|}\tag{40.27}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.28" id="eq-40-28">\[\frac{(b^{2}+1)^{2}}{b^{2}} = \frac{n}{\left|A\right|} + \frac{n}{\left|\overline{A}\right|}\tag{40.28}\]</span></p>
+
+
+<p>Therefore, we have, <span class="math display" data-equation="40.29" id="eq-40-29">\[\left(b+ \frac{1}{b} \right)^{2}= \frac{n}{\left|A\right|} + \frac{n}{\left|\overline{A}\right|}\tag{40.29}\]</span></p>
+
+
+<p>We also see that,</p>
+
+
+<p><span class="math display" data-equation="40.30" id="eq-40-30">\[b\left|A \right| - \frac{1}{b}\left|\bar{A}\right| = \sqrt{\left|A\right|\left|\bar{A}\right|}-\sqrt{\left|\bar{A}\right|\left|A\right|} = 0\tag{40.30}\]</span></p>
+
+
+<p>Also we have, <span class="math display" data-equation="40.31" id="eq-40-31">\[b^{2}\left|A\right| + \frac{1}{b^{2}}\left|\bar{A}\right| = n\tag{40.31}\]</span></p>
+
+
+<p>Keeping these results aside, let us try to look at what happens if the indicator vector <span class="math inline">\(\boldsymbol{f}\)</span> is used in calculating <span class="math inline">\(\boldsymbol{f}^{\top}L\boldsymbol{f}\)</span>.</p>
+
+
+<p>We know from <a class="equation-ref" href="#eq-40-16">equation (40.16)</a> that,</p>
+
+
+<p><span class="math display" data-equation="40.32" id="eq-40-32">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{n} \sum_{j=1}^{n}  w_{ij}\left( f_{i} - f_{j} \right)^{2}\tag{40.32}\]</span></p>
+
+
+<p>Now we write the above sum as two sums and add the two.</p>
+
+
+<p><span class="math display" data-equation="40.33" id="eq-40-33">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( f_{i} - f_{j} \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( f_{i} - f_{j} \right)^{2}  \right]\tag{40.33}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.34" id="eq-40-34">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( b - \left( \frac{-1}{b} \right) \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( \left( \frac{-1}{b} \right) - b \right)^{2}  \right]\tag{40.34}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.35" id="eq-40-35">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] \left( b + \frac{1}{b}\right)^{2}\tag{40.35}\]</span></p>
+
+
+<p>Now the above can be written as,</p>
+
+
+<p><span class="math display" data-equation="40.36" id="eq-40-36">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = cut(A,\bar{A})\left( b + \frac{1}{b}\right)^{2}\tag{40.36}\]</span></p>
+
+
+<p>Substituting <a class="equation-ref" href="#eq-40-29">equation (40.29)</a> in the above we get,</p>
+
+
+<p><span class="math display" data-equation="40.37" id="eq-40-37">\[\boldsymbol{f}^{\top}L\boldsymbol{f} =  n\left(\frac{cut(A,\bar{A})}{\left|A\right|} + \frac{cut(A,\bar{A})}{\left|\overline{A}\right|}\right)= n(ratiocut(A,\bar{A}))\tag{40.37}\]</span></p>
+
+
+<p>So we finally have, <span class="math display" data-equation="40.38" id="eq-40-38">\[\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{n} = Ratio Cut(A,\bar{A})\tag{40.38}\]</span></p>
+
+
+<p>Therefore, the ratio cut depends on the indicator vector <span class="math inline">\(\boldsymbol{f}\)</span>. Now let us try to physically interpret from the definition of ratio cuts. A ratio cut indicates the average weight connectivity of two graphs. It can be treated as how two partitions of the graphs are connected. Now if we minimize the ratio cut, it indicates partitioning of graphs into parts that are least connected. So the entire problem of partitioning the graph into two parts connected with the least connected weights can be reduced to minimizing the expression <span class="math inline">\(\boldsymbol{f}^{\top}L\boldsymbol{f}\)</span>.</p>
+
+
+<p>We now examine the properties of <span class="math inline">\(\boldsymbol{f}\)</span>,</p>
+
+
+<ol>
+<li><p><span class="math inline">\(\boldsymbol{f}^{\top}\boldsymbol{1} = 0\)</span> <span class="math display" data-equation="40.39" id="eq-40-39">\[\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i=1}^{n} f_{i}\tag{40.39}\]</span></p>
+<p>Now the above expression can be written in two parts: <span class="math display" data-equation="40.40" id="eq-40-40">\[\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i\in A} f_{i} + \sum_{j \in \bar{A}} f_{j}\tag{40.40}\]</span></p>
+<p>Using the expression in <a class="equation-ref" href="#eq-40-24">(40.24)</a> we have,</p>
+<p><span class="math display" data-equation="40.41" id="eq-40-41">\[\boldsymbol{f}^{\top}\boldsymbol{1} =\sum_{i\in A} b + \sum_{j \in \bar{A}} \left(\frac{-1}{b}\right)\tag{40.41}\]</span></p>
+<p>This simplifies to:</p>
+<p><span class="math display" data-equation="40.42" id="eq-40-42">\[\boldsymbol{f}^{\top}\boldsymbol{1} = b \left|A\right| + \left|\bar{A}\right| \left(\frac{-1}{b}\right) = b\left|A\right| - \frac{1}{b}\left|\bar{A}\right|\tag{40.42}\]</span> Using <a class="equation-ref" href="#eq-40-30">equation (40.30)</a> in the above equation we finally get, <span class="math display" data-equation="40.43" id="eq-40-43">\[\boldsymbol{f}^{\top}\boldsymbol{1} = b\left|A\right| - \frac{1}{b}\left|\bar{A}\right| = 0\tag{40.43}\]</span></p></li>
+<li><p><span class="math inline">\(\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f}\)</span> <span class="math display" data-equation="40.44" id="eq-40-44">\[\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i=1}^{n} f_{i}^{2}\tag{40.44}\]</span></p>
+<p><span class="math display" data-equation="40.45" id="eq-40-45">\[\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i \in A} f_{i}^{2} +  \sum_{j \in \bar{A}} f_{j}^{2}\tag{40.45}\]</span></p>
+<p><span class="math display" data-equation="40.46" id="eq-40-46">\[\|\boldsymbol{f}\|^{2} = \boldsymbol{f}^{\top}\boldsymbol{f} = \sum_{i \in A} b^{2} +  \sum_{j \in \bar{A}} \left( \frac{1} {b}\right)^{2}\tag{40.46}\]</span></p>
+<p><span class="math display" data-equation="40.47" id="eq-40-47">\[\|\boldsymbol{f}\|^{2} =\left|A\right| b^{2} +  \left|\bar{A}\right| \left( \frac{1} {b}\right)^{2}\tag{40.47}\]</span></p>
+<p>Using <a class="equation-ref" href="#eq-40-31">(40.31)</a>, the equation becomes <span class="math display" data-equation="40.48" id="eq-40-48">\[\|\boldsymbol{f}\| = \sqrt{n}\tag{40.48}\]</span></p>
+<p>We however use the following equation in modifying the expression for ratio cuts.</p>
+<p><span class="math display" data-equation="40.49" id="eq-40-49">\[\boldsymbol{f}^{\top}\boldsymbol{f} = n\tag{40.49}\]</span></p>
+<p>So the equation of ratio cut modifies to:</p>
+<p><span class="math display" data-equation="40.50" id="eq-40-50">\[\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}} = Ratio Cut(A,\bar{A})\tag{40.50}\]</span></p></li>
+</ol>
+
+
+<p>Finally, we formulate the problem of minimization of the ratio cut as follows:</p>
+
+
+<p><span class="math display" data-equation="40.51" id="eq-40-51">\[\underset{A \subset G}{min} RatioCut(A,\bar{A}) 
+\iff \underset{\boldsymbol{f} \in \mathbb{R}^{n}}{min} \frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}}\tag{40.51}\]</span></p>
+
+
+<p>In the above minimization problem, the vector <span class="math inline">\(\boldsymbol{f}\)</span> is subjected to:</p>
+
+
+<ol>
+<li><p><span class="math inline">\(\boldsymbol{f}^{\top}\boldsymbol{1} = 0\)</span></p></li>
+<li><p><span class="math inline">\(f_{i} = \begin{cases}
+\sqrt{\frac{\left| \bar{A} \right|}{\left| A \right|}}, \textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{\left| A \right|}{\left| \overline{A} \right|}}, \textnormal{ if } v_{i} \in \overline{A}\\
+\end{cases}\)</span></p></li>
+</ol>
+
+
+<p>Now combining the first constraint into the minimization problem and relaxing the second constraint, we get the following as the new minimization problem.</p>
+
+
+<p><span class="math display" data-equation="40.52" id="eq-40-52">\[\underset{\boldsymbol{f} \in \mathbb{R}^{n},\boldsymbol{f}^{\top}\boldsymbol{1}=0}{min} \frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{\boldsymbol{f}^{\top}\boldsymbol{f}}\tag{40.52}\]</span></p>
+
+
+<p>By the Rayleigh–Ritz theorem that the eigenvector corresponding to the smallest eigenvalue solves the above minimization problem when the constraint <span class="math inline">\(\boldsymbol{f}^{\top}\boldsymbol{1}=0\)</span> is not present. Now when the constraint is present, we have 0 as the smallest eigenvalue of L, since L is positive semidefinite, and the corresponding eigenvector is <span class="math inline">\(\boldsymbol{1}\)</span>. Since the possibility of the eigenvector corresponding to the smallest eigenvalue is consumed, we take the eigenvector corresponding to the second smallest eigenvalue. And that minimizes the entire expression. Therefore the eigenvector corresponding to the second smallest eigenvalue divides the Graph into two partitions.</p>
+
+
+<h1 id="ratio-cuts-for-multiple-partitions">Ratio Cuts for Multiple Partitions</h1>
+
+
+<p>Consider the case of dividing the graph into <span class="math inline">\(k\)</span> partitions, i.e. the data points that were formed into a graph are to be clustered into <span class="math inline">\(k\)</span> clusters. In the previous section we have looked into the case of two clusters, i.e.<span class="math inline">\(k = 2\)</span>. Let the clusters be <span class="math inline">\(A_{1}, A_{2}, ..., A_{k}\)</span>, such that <span class="math inline">\(A_{i} \cap A_{j} = \Phi\)</span> and <span class="math inline">\(\bigcup\limits_{i=1}^{k}A_{i}=A\)</span>. We now define <span class="math inline">\(\boldsymbol{h_{j} \in \mathbb{R}^{n}}\)</span> in such a way that,</p>
+
+
+<p><span class="math display" data-equation="40.53" id="eq-40-53">\[h_{ij} = \begin{cases}
+\frac{1}{\sqrt{\left|A_{j}\right|}} \textnormal{ if } \boldsymbol{v_{i}} \in A_{j} \\
+0, \textnormal{ otherwise} \\
+\end{cases}\tag{40.53}\]</span> where <span class="math inline">\(j=1,2,3,...,k\)</span>, that is each <span class="math inline">\(\boldsymbol{h_{j}}\)</span> corresponds to a cluster. The non-zero entries of <span class="math inline">\(\boldsymbol{h_{j}}\)</span> indicate presence of the corresponding components (indicated by the index) in the cluster <span class="math inline">\(j\)</span>.</p>
+
+
+<p>Now let us consider the expression <span class="math inline">\(\boldsymbol{h_{j}}^{\top}L\boldsymbol{h_{j}}\)</span>. Ignoring normalizing constant <span class="math inline">\(\frac{1}{\sqrt{\left|A_{j}\right|}}\)</span> for the time being, let us create a new vector <span class="math inline">\(\boldsymbol{\bar{h}_{j}} = \sqrt{\left|A_{j}\right|} \boldsymbol{h_{j}}\)</span> , and thus examine <span class="math inline">\(\boldsymbol{\bar{h}_{j}}^{\top}L\boldsymbol{\bar{h}_{j}}\)</span></p>
+
+
+<p>Now when there is a 1 in the entry of <span class="math inline">\(\boldsymbol{\bar{h}_{j}}\)</span>, we select that row of L and all similarly select all other rows of L where the corresponding entry in <span class="math inline">\(\boldsymbol{\bar{h}_{j}}\)</span> is 1. This summarizes the operation <span class="math inline">\(\boldsymbol{\bar{h}_{j}}^{\top}L\)</span>. Now when we post multiply by <span class="math inline">\(\boldsymbol{\bar{h}_{j}}\)</span>, we find that we get an expression where the weights of all nodes within the graph are subtracted from the sum of all weights in the graph. This basically gives the value of <span class="math inline">\(cut(A_{i},\bar{A}_{i})\)</span>.</p>
+
+
+<p>As an example let us consider <span class="math display" data-equation="40.54" id="eq-40-54">\[\bar{\boldsymbol{h_{j}}} = 
+\begin{bmatrix}
+1 \\
+1 \\
+0 \\
+\vdots \\
+0 \\
+\end{bmatrix}\tag{40.54}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.55" id="eq-40-55">\[\bar{\boldsymbol{h_{j}}}^{\top}L\bar{\boldsymbol{h_{j}}} =
+\begin{bmatrix}
+1 &amp;&amp; 1 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 0 \\
+\end{bmatrix}
+\begin{bmatrix}
+d_{1} &amp;&amp; -w_{12} &amp;&amp; -w_{13} &amp;&amp; \cdots &amp;&amp; -w_{1n} \\
+-w_{21} &amp;&amp; d_{2} &amp;&amp; -w_{23} &amp;&amp; \cdots &amp;&amp; -w_{2n} \\
+-w_{31} &amp;&amp; -w_{32} &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; -w_{3n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+-w_{n1} &amp;&amp; -w_{n2} &amp;&amp; -w_{n3} &amp;&amp; \cdots &amp;&amp; d_{n} \\
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1 \\
+0 \\
+\vdots \\
+0 \\
+\end{bmatrix}\tag{40.55}\]</span></p>
+
+
+<p><span class="math display" data-equation="40.56" id="eq-40-56">\[\bar{\boldsymbol{h_{j}}}^{\top}L\bar{\boldsymbol{h_{j}}} = d_{1} + d_{2} - w_{12} - w_{21} = (d_{1}-w_{12}) + (d_{2}-w_{21})\tag{40.56}\]</span></p>
+
+
+<p>Now this summing up of weights incident on a node is what we refer to as a cut. So finally we see that <span class="math inline">\(\boldsymbol{h_{j}}^{\top}L\boldsymbol{h_{j}}\)</span> is the sum of cuts divided by the factor <span class="math inline">\(\left|A_{j}\right|\)</span>. This is simply the value of ratio cut. Now we want to minimize the sum of all the terms, i.e. terms obtained by putting <span class="math inline">\(j=1,2,3,..\)</span>, now again by Rayleigh Ritz theorem, we can say that the eigenvectors corresponding to the smallest k-eigenvalues will minimize the sum.</p>
+
+
+<h1 id="normalized-spectral-clustering">Normalized Spectral Clustering</h1>
+
+
+<h2 id="normalized-spectral-clustering-for-two-partitions">Normalized Spectral Clustering for Two Partitions</h2>
+
+
+<p>Having derived unnormalized spectral clustering, we now turn to normalized spectral clustering. We thus define a term called the Normalized Cuts of a graph before we proceed any further. Define the normalized cut, denoted by <em>ncut</em>.</p>
+
+
+<p><span class="math display" data-equation="41.1" id="eq-41-1">\[ncut(A_{1},A_{2},...,A_{k}) = \sum_{i=1}^{k} \frac{w(A_{i},\bar{A}_{i})}{vol(A_{i})} = \sum_{i=1}^{k} \frac{cut(A_{i},\bar{A}_{i})}{vol(A_{i})}\tag{41.1}\]</span></p>
+
+
+<p>where <span class="math display" data-equation="41.2" id="eq-41-2">\[vol(A) = \sum_{i \forall i \in A} d_{i}\tag{41.2}\]</span> is called the Volume of a subgraph <span class="math inline">\(A\)</span> and is the sum of all the weights of the edges in the graph.</p>
+
+
+<p>Similar to the previous algorithm, in this algorithm we try to minimize the Normalized cut rather than the Ratio cut. Let us start by defining elements in the indicator vectors:</p>
+
+
+<p><span class="math display" data-equation="41.3" id="eq-41-3">\[f_i = \begin{cases}
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}},\textnormal{ if } v_{i} \in A \\
+-\sqrt{\frac{Vol(A)}{Vol(\bar{A})}},\textnormal{ if } v_{i} \in \bar{A} \\
+\end{cases}\tag{41.3}\]</span></p>
+
+
+<p>Therefore when the vector is viewed as a whole, we have a representation similar to the following depending on which node belongs to which part of the graph.</p>
+
+
+<p><span class="math display" data-equation="41.4" id="eq-41-4">\[\boldsymbol{f} = 
+\begin{bmatrix}
+f_{1}\\
+f_{2}\\
+\vdots\\
+f_{n}\\
+\end{bmatrix} = 
+\begin{bmatrix}
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}}  \\
+-\sqrt{\frac{Vol(A)}{Vol(\bar{A})}} \\
+\vdots\\
+\sqrt{\frac{Vol(\bar{A})}{Vol(A)}}\\
+\end{bmatrix}\tag{41.4}\]</span></p>
+
+
+<p>Observe that the indicator vectors are of the size <span class="math inline">\(n \times 1\)</span> where <span class="math inline">\(n\)</span> is the number of nodes in the graph. Now let us look at what happens when we multiply the degree graph by the above indicator vector.</p>
+
+
+<p>Let us now observe the various properties of the vector <span class="math inline">\(D\boldsymbol{f}\)</span>.</p>
+
+
+<p>It can be written as:</p>
+
+
+<p><span class="math display" data-equation="41.5" id="eq-41-5">\[\left(D\boldsymbol{f}^{\top}\right)\boldsymbol{1} =\sum_{i\in A} d_{ii}f_{i} + \sum_{j \in \bar{A}} d_{jj}f_{j}\tag{41.5}\]</span></p>
+
+
+<p>Observing that <span class="math inline">\(\sum_{i\in A} d_{ii}=Vol(A)\)</span> and <span class="math inline">\(\sum_{i\in A} d_{ii}=Vol(\bar{A})\)</span>, and substituting <span class="math inline">\(\boldsymbol{f}_{i} = \sqrt{\frac{Vol(\bar{A})}{Vol(A)}} \forall i \in A\)</span> and <span class="math inline">\(\boldsymbol{f} = \sqrt{-\frac{Vol(A)}{Vol(\bar{A})}} \forall i \in \bar{A}\)</span> in the above equation we get,</p>
+
+
+<p><span class="math display" data-equation="41.6" id="eq-41-6">\[\left(D\boldsymbol{f}^{\top}\right)\boldsymbol{1} =\sum_{i\in A_{j}} d_{ii}f_{i} + \sum_{j \in \bar{A}} d_{jj}f_{j} = \sqrt{Vol(A)Vol(\bar{A})}-\sqrt{Vol(\bar{A})Vol(A)} = 0\tag{41.6}\]</span></p>
+
+
+<p>Similarly we can see that, we get, <span class="math display" data-equation="41.7" id="eq-41-7">\[\boldsymbol{f}^{\top}D\boldsymbol{f} = vol(A)\left(\sqrt{\frac{vol(\bar{A})}{Vol(A)}}\right)^{2} + vol(\bar{A})\left(\sqrt{\frac{vol(A)}{Vol(\bar{A})}}\right)^{2} = Vol(A) + Vol(\bar{A}) = Vol(V)\tag{41.7}\]</span></p>
+
+
+<p>Next, consider the quadratic form <span class="math inline">\(\boldsymbol{f}^{\top}L\boldsymbol{f}\)</span>. From a previous lecture we have:</p>
+
+
+<p><span class="math display" data-equation="41.8" id="eq-41-8">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = 
+\frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N} \left( f^{2}_{i} w_{ij} + f^{2}_{j} w_{ij} - 2f_{i}f_{j} w_{ij} \right) = \frac{1}{2}\sum_{i=1}^{N} \sum_{j=1}^{N}  w_{ij}\left( f_{i} - f_{j} \right)^{2}\tag{41.8}\]</span></p>
+
+
+<p>Now we write the above sum as two sums and add the two.</p>
+
+
+<p><span class="math display" data-equation="41.9" id="eq-41-9">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij}\left( f_{i} - f_{j} \right)^{2} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\left( f_{i} - f_{j} \right)^{2}  \right]\tag{41.9}\]</span></p>
+
+
+<p>The term <span class="math inline">\((f_{i}-f_{j})^{2}\)</span> is same in the two sums because of the presence of the squaring expression. In either of the case the square of the difference can be evaluated as:</p>
+
+
+<p><span class="math display" data-equation="41.10" id="eq-41-10">\[(f_{i}-f_{j})^{2} = \left(\sqrt{\frac{Vol(\bar{A})}{Vol(A)}} + \sqrt{\frac{Vol(A)}{Vol(\bar{A})}}\right)^{2} = \left( \frac{Vol(V)}{\sqrt{Vol(A)Vol(\bar{A})}} \right)^{2} = \frac{Vol(V)Vol(V)}{Vol(A)Vol(\bar{A})}\tag{41.10}\]</span></p>
+
+
+<p>Therefore, <span class="math display" data-equation="41.11" id="eq-41-11">\[(f_{i}-f_{j})^{2} =
+\frac{Vol(V)}{Vol(A)} + \frac{Vol(V)}{Vol(\bar{A})} = Vol(V)\left(\frac{1}{Vol(A)} + \frac{1}{Vol(\bar{A})}\right)\tag{41.11}\]</span></p>
+
+
+<p><span class="math display" data-equation="41.12" id="eq-41-12">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = \frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] Vol(V)\left(\frac{1}{Vol(A)} + \frac{1}{Vol(\bar{A})}\right)\tag{41.12}\]</span></p>
+
+
+<p>We know that, <span class="math display" data-equation="41.13" id="eq-41-13">\[\frac{1}{2} \left[ \sum_{i \in A} \sum_{j \in \bar{A}}  w_{ij} + \sum_{i \in \bar{A}} \sum_{j \in A}  w_{ij}\right] = cut(A,\bar{A})\tag{41.13}\]</span></p>
+
+
+<p><span class="math display" data-equation="41.14" id="eq-41-14">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = Vol(V)\left(\frac{cut(A,\bar{A})}{Vol(A)} + \frac{cut(A,\bar{A})}{Vol(\bar{A})}\right)\tag{41.14}\]</span></p>
+
+
+<p><span class="math display" data-equation="41.15" id="eq-41-15">\[ncut(A,\bar{A}) = \left(\frac{cut(A,\bar{A})}{Vol(A)} + \frac{cut(A,\bar{A})}{Vol(\bar{A})}\right)\tag{41.15}\]</span></p>
+
+
+<p><span class="math display" data-equation="41.16" id="eq-41-16">\[\boldsymbol{f}^{\top}L\boldsymbol{f} = Vol(V) ncut(A,\bar{A})\tag{41.16}\]</span></p>
+
+
+<p><span class="math display" data-equation="41.17" id="eq-41-17">\[ncut(A,\bar{A}) =\frac{\boldsymbol{f}^{\top}L\boldsymbol{f}}{Vol(V)}\tag{41.17}\]</span></p>
+
+
+<p>Now we formulate the minimization problem as minimizing <span class="math inline">\(ncut(A,\bar{A})\)</span> over <span class="math inline">\(A\)</span>, which is again the following problem:</p>
+
+
+<p><span class="math display" data-equation="41.18" id="eq-41-18">\[min\textnormal{\quad} \boldsymbol{f}^{\top}L\boldsymbol{f} \textnormal{ such that } \boldsymbol{f} \textnormal{ given as per (41.3) and } \left(D\boldsymbol{f}\right)^{\top}\boldsymbol{1}=0 \textnormal{ and }  \boldsymbol{f}^{\top}D\boldsymbol{f} = Vol(V)\tag{41.18}\]</span></p>
+
+
+<p>Now we can write one of the constraint as <span class="math inline">\(\boldsymbol{f}^{\top}D^{\frac{1}{2}}D^{\frac{1}{2}}\boldsymbol{f} = Vol(V)\)</span>. We now write <span class="math inline">\(g=D^{\frac{1}{2}}\boldsymbol{f}\)</span>.</p>
+
+
+<p>With this new convention we can write the minimization problem as finding <span class="math inline">\(\boldsymbol{g} \in \mathbb{R}^{n}\)</span> <span class="math display" data-equation="41.19" id="eq-41-19">\[\textnormal{min}\quad\boldsymbol{g}^{\top}D^{\frac{-1}{2}}LD^{\frac{-1}{2}}\boldsymbol{g} \quad   \textnormal{ s.t. }  \boldsymbol{g}^{\top}\boldsymbol{g} = Vol(V)\tag{41.19}\]</span></p>
+
+
+<p>Now we assume <span class="math inline">\(L_{symm}= D^{\frac{-1}{2}}LD^{\frac{-1}{2}}\)</span></p>
+
+
+<p><span class="math display" data-equation="41.20" id="eq-41-20">\[\textnormal{min}\quad\boldsymbol{g}^{\top}L_{symm}\boldsymbol{g} \quad   \textnormal{ s.t. }  \boldsymbol{g}^{\top}\boldsymbol{g} = Vol(V)\tag{41.20}\]</span></p>
+
+
+<p>Now to minimize the expression we choose the vector <span class="math inline">\(\boldsymbol{g}\)</span> as the eigenvector corresponding to the second smallest eigenvalue of <span class="math inline">\(L_{symm}\)</span>.</p>
+
+
+<p>This can also be seen as the solution to the generalized eigenvalue problem:</p>
+
+
+<p><span class="math display" data-equation="41.21" id="eq-41-21">\[L\boldsymbol{f} = \lambda D\boldsymbol{f}\tag{41.21}\]</span></p>
+
+
+<h2 id="normalized-spectral-clustering-for-k-partitions">Normalized Spectral Clustering for <span class="math inline">\(k\)</span> Partitions</h2>
+
+
+<p>Let us start by defining an element in the indicator vector in the case of <span class="math inline">\(k\)</span> graph partitions.</p>
+
+
+<p><span class="math display" data-equation="41.22" id="eq-41-22">\[h_{ij} = \begin{cases}
+\frac{1}{\sqrt{Vol(A_{j})}}, \textnormal{ if } v_{j} \in A_{j} \\
+\textnormal{  \quad   }0, \textnormal{\qquad otherwise}\\
+\end{cases}\tag{41.22}\]</span></p>
+
+
+<p>So now the indicator vector appears something like below:</p>
+
+
+<p><span class="math display" data-equation="41.23" id="eq-41-23">\[\boldsymbol{h_{j}} = 
+\begin{bmatrix}
+h_{ij}\\
+h_{2j}\\
+\vdots\\
+h_{nj}\\
+\end{bmatrix} = 
+\begin{bmatrix}
+\frac{1}{\sqrt{Vol(A_{j})}} \\
+0 \\
+0 \\
+\vdots \\
+\frac{1}{\sqrt{Vol(A_{j})}} \\
+\end{bmatrix}\tag{41.23}\]</span></p>
+
+
+<p>Now let us look at what will happen when we pre-multiply (the transpose of the indicator vector) and post-multiply the above indicator vector with the degree matrix <span class="math inline">\(D\)</span>. We know that the degree matrix is a diagonal matrix each containing the sum of weights of incident on a node.</p>
+
+
+<p><span class="math display" data-equation="41.24" id="eq-41-24">\[\boldsymbol{h}_{j}^{\top}D\boldsymbol{h}_{j} = \sum_{i=1}^{n} d_{i}h^{2}_{ij} = \sum_{\forall i,v_{i} \in A_{j}} \frac{d_{ij}}{vol(A_{j})} = \frac{\sum_{\forall i,v_{i} \in A_{j}}d_{ij}}{vol(A_{j})}  = 1\tag{41.24}\]</span></p>
+
+
+<p>This expression equals one because the summation of the weights incident on each node in the graph <span class="math inline">\(A_{k}\)</span> adds up to the value <span class="math inline">\(vol(A_{k})\)</span>, recall that this expression was evaluated by adding the weights incident on each node of the graph in consideration. Now let us consider the same operation above with the Laplacian matrix <span class="math inline">\(L\)</span>.</p>
+
+
+<p><span class="math display" data-equation="41.25" id="eq-41-25">\[\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \sum_{i=1}^{n}\sum_{k=1}^{n} h_{ij}L_{ik}h_{kj}\tag{41.25}\]</span></p>
+
+
+<p>Now for a given subgraph <span class="math inline">\(A_{j}\)</span> we have some <span class="math inline">\(h_{rj}\)</span>s equaling zero, that will multiply <span class="math inline">\(L_{ik}\)</span> and the corresponding terms vanish. Consider the case of all such <span class="math inline">\(m\)</span> such that <span class="math inline">\(h_{mj}\)</span> is non-zero, all such terms will give non-zero terms in the final expression only when other element <span class="math inline">\(h_{nj}\)</span> (for all such <span class="math inline">\(n\)</span>) is also non-zero. This means that for all pairs <span class="math inline">\((m,n)\)</span> where <span class="math inline">\(h_{mj}\)</span> and <span class="math inline">\(h_{nj}\)</span> are non-zero, we will have non-zero contributions towards the final expression. One such case is when <span class="math inline">\(m=n\)</span>. All other cases are when the vertices <span class="math inline">\(v_{m}\)</span> and <span class="math inline">\(v_{n}\)</span> belong to the subgraph under consideration, this is because when both of them belong to the same subgraph the corresponding <span class="math inline">\(h_{mj}\)</span> and <span class="math inline">\(h_{nj}\)</span> are non-zero simultaneously and thus they give a non-zero contribution to the final expression. Thus we have:</p>
+
+
+<p><span class="math display" data-equation="41.26" id="eq-41-26">\[\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \frac{1}{vol(A_{j})}\left[\sum_{i \textnormal{ s.t. } v_{i} \in A_{j}}^{n} L_{ii} + \sum_{i,j \textnormal{ s.t. }v_{i},v_{j} \in A_{j}} L_{ij}\right]\tag{41.26}\]</span></p>
+
+
+<p>In the above equation the first summation becomes the sum of the diagonal elements for nodes in the subgraph <span class="math inline">\(A_{j}\)</span> and the second term comprises of the sum of the negatives of the weights connecting vertices <span class="math inline">\(v_{i}\)</span> and <span class="math inline">\(v_{j}\)</span>. Now when the total expression is evaluated the weights connecting the internal nodes of the subgraph are subtracted from the sum total of all the nodes of the subgraph. Thus what remains is the sum total of the weights connecting the subgraph <span class="math inline">\(A_{j}\)</span> and <span class="math inline">\(\bar{A}_{j}\)</span>. This is called the <span class="math inline">\(cut(A_{j},\bar{A}_{j})\)</span>.</p>
+
+
+<p><span class="math display" data-equation="41.27" id="eq-41-27">\[\boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j} = \frac{cut(A_{j},\bar{A}_{j})}{vol(A_{j})}\tag{41.27}\]</span></p>
+
+
+<p>It remains to minimize the value of <span class="math inline">\(ncut(A_{1}, A_{2},...,A_{n})\)</span>.</p>
+
+
+<p>Therefore,</p>
+
+
+<p><span class="math display" data-equation="41.28" id="eq-41-28">\[ncut(A_{1}, A_{2},...,A_{n}) = \sum_{j=1}^{n} \boldsymbol{h}_{j}^{\top}L\boldsymbol{h}_{j}\tag{41.28}\]</span></p>
+
+
+<p>Define a matrix <span class="math inline">\(H\)</span> such that:</p>
+
+
+<p><span class="math display" data-equation="41.29" id="eq-41-29">\[H=
+\begin{bmatrix}
+\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{2} &amp;&amp; \cdots &amp;&amp; \boldsymbol{h}_{n} 
+\end{bmatrix}\tag{41.29}\]</span> where <span class="math inline">\(\boldsymbol{h}_{k} \in \mathbb{R}^{n}\)</span> and thus <span class="math inline">\(H \in \mathbb{R}^{n\times n}\)</span>.</p>
+
+
+<p>Now we can formulate the above minimization problem as the minimization of the trace of the matrix <span class="math inline">\(H^{\top}LH\)</span>. Now let us formulate the constraint for the minimization problem.</p>
+
+
+<p>Before going any further let us observe some more facts. Let us make a small change in <a class="equation-ref" href="#eq-41-7">(41.7)</a> to form the following expression: <span class="math inline">\(\boldsymbol{h}_{i}^{\top}D\boldsymbol{h}_{j}\)</span>. Now to evaluate this expression we use the fact that <span class="math inline">\(\boldsymbol{h}_{i}\)</span> is orthogonal to <span class="math inline">\(\boldsymbol{h}_{j}\)</span> for different values of <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>. These two vectors turn out to be orthogonal because of the property that a node in the graph cannot be contained in two different subgraphs, thus resulting in different non-zero elements present in different vectors, now we can observe that on multiplying D and <span class="math inline">\(\boldsymbol{h}_{j}\)</span>, we get each element of <span class="math inline">\(\boldsymbol{h}_{j}\)</span> scaled by each diagonal entry, this is because the multiplication produces a linear combination of the columns of D where the multiplying coefficient of each column in D is the corresponding element of the vector <span class="math inline">\(\boldsymbol{h}_{j}\)</span>, since zero elements in the vector give no contribution towards the end multiplication result, only the diagonal elements which correspond to nonzero entries are scaled and all these when added, only result in a element-wise scaled version of each element in <span class="math inline">\(\boldsymbol{h}_{j}\)</span>. Now from this, it follows that the zero-entries have not been disturbed so the vector <span class="math inline">\(D\boldsymbol{h}_{j}\)</span> is also orthogonal to <span class="math inline">\(\boldsymbol{h}_{i}\)</span>. Thus we have: <span class="math display" data-equation="41.30" id="eq-41-30">\[\boldsymbol{h}_{i}^{\top}D\boldsymbol{h}_{j} = 0\tag{41.30}\]</span> for different values of <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>.</p>
+
+
+<p>From <a class="equation-ref" href="#eq-41-7">(41.7)</a> and <a class="equation-ref" href="#eq-41-13">(41.13)</a> we have:</p>
+
+
+<p><span class="math display" data-equation="41.31" id="eq-41-31">\[\begin{bmatrix}
+\boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{2} &amp;&amp; \boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+\boldsymbol{h}_{1}^{\top}D\boldsymbol{h}_{n} \\
+\boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{2} &amp;&amp; \boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+\boldsymbol{h}_{2}^{\top}D\boldsymbol{h}_{n} \\
+\boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{2} &amp;&amp; \boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+\boldsymbol{h}_{3}^{\top}D\boldsymbol{h}_{n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+\boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{2} &amp;&amp; \boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+\boldsymbol{h}_{n}^{\top}D\boldsymbol{h}_{n} \\
+\end{bmatrix} = 
+\begin{bmatrix}
+1 &amp;&amp; 0 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 0 \\
+0 &amp;&amp; 1 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 0 \\
+0 &amp;&amp; 0 &amp;&amp; 1 &amp;&amp; \cdots &amp;&amp; 0 \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+0 &amp;&amp; 0 &amp;&amp; 0 &amp;&amp; \cdots &amp;&amp; 1 \\
+\end{bmatrix} = \boldsymbol{I}\tag{41.31}\]</span></p>
+
+
+<p>The above can therefore be written as, <span class="math display" data-equation="41.32" id="eq-41-32">\[\begin{bmatrix}
+\boldsymbol{h_{1}}^{\top} \\
+\boldsymbol{h_{2}}^{\top} \\
+\boldsymbol{h_{3}}^{\top} \\
+\vdots \\
+\boldsymbol{h_{n}}^{\top} \\
+\end{bmatrix}
+\begin{bmatrix}
+D\boldsymbol{h}_{1} &amp;&amp; 
+D\boldsymbol{h}_{2} &amp;&amp; 
+D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+D\boldsymbol{h}_{n} \\
+D\boldsymbol{h}_{1} &amp;&amp; 
+D\boldsymbol{h}_{2} &amp;&amp; 
+D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+D\boldsymbol{h}_{n} \\
+D\boldsymbol{h}_{1} &amp;&amp; 
+D\boldsymbol{h}_{2} &amp;&amp; 
+D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+D\boldsymbol{h}_{n} \\
+\vdots &amp;&amp; \vdots &amp;&amp; \vdots &amp;&amp; \ddots &amp;&amp; \vdots \\
+D\boldsymbol{h}_{1} &amp;&amp; 
+D\boldsymbol{h}_{2} &amp;&amp; 
+D\boldsymbol{h}_{3} &amp;&amp; \cdots &amp;&amp;
+D\boldsymbol{h}_{n} \\
+\end{bmatrix}
+= \boldsymbol{I}\tag{41.32}\]</span></p>
+
+
+<p>The above then becomes, <span class="math display" data-equation="41.33" id="eq-41-33">\[\begin{bmatrix}
+\boldsymbol{h_{1}}^{\top} \\
+\boldsymbol{h_{2}}^{\top} \\
+\boldsymbol{h_{3}}^{\top} \\
+\vdots \\
+\boldsymbol{h_{n}}^{\top} \\
+\end{bmatrix}
+D
+\begin{bmatrix}
+\boldsymbol{h}_{1} &amp;&amp; \boldsymbol{h}_{2} &amp;&amp; \cdots &amp;&amp; \boldsymbol{h}_{n} 
+\end{bmatrix} = \boldsymbol{I}\tag{41.33}\]</span> Therefore in compact form the we have, <span class="math display" data-equation="41.34" id="eq-41-34">\[H^{\top}DH = \boldsymbol{I}\tag{41.34}\]</span></p>
+
+
+<p>Now let us write the above expression in the following form: <span class="math display" data-equation="41.35" id="eq-41-35">\[H^{\top}D^{\frac{1}{2}}D^{\frac{1}{2}}H = \boldsymbol{I}\tag{41.35}\]</span> Assuming <span class="math inline">\(T = D^{\frac{1}{2}}H\)</span>, we have,</p>
+
+
+<p><span class="math display" data-equation="41.36" id="eq-41-36">\[T^{\top}T = \boldsymbol{I}\tag{41.36}\]</span></p>
+
+
+<p>Now the optimization problem reduces to the minimization of <span class="math inline">\(trace(H^{\top}LH)\)</span> under the constraint that <span class="math inline">\(T^{\top}T = \boldsymbol{I}\)</span>. Now we can convert the objective function in terms of the variables in the constraint so that we get a familiar form. So the problem can be posed as:</p>
+
+
+<p><span class="math display" data-equation="41.37" id="eq-41-37">\[min \textnormal{\quad} trace (T^{\top}D^{-\frac{1}{2}}LD^{-\frac{1}{2}}T) \textnormal{ such that } T^{\top}T = \boldsymbol{I}\tag{41.37}\]</span></p>
+
+
+<p>Now assuming <span class="math inline">\(D^{-\frac{1}{2}}LD^{-\frac{1}{2}}=Y\)</span>, we have the minimization problem as:</p>
+
+
+<p><span class="math display" data-equation="41.38" id="eq-41-38">\[min \textnormal{\quad} trace (T^{\top}YT) \textnormal{ such that } T^{\top}T = \boldsymbol{I}\tag{41.38}\]</span></p>
+
+
+<p>Now assuming <span class="math inline">\(\boldsymbol{t}_{i}\)</span>s as the column vectors in the matrix T, the above problem can be written as: <span class="math display" data-equation="41.39" id="eq-41-39">\[min \quad \sum_{j=1}^{n} \boldsymbol{t}_{j}^{\top}Y\boldsymbol{t}_{j} \textnormal{ such that } \boldsymbol{t}_{j}^{\top}\boldsymbol{t}_{j} = 1\tag{41.39}\]</span></p>
+
+
+<p>This can be easily seen that the <span class="math inline">\(k\)</span> eigenvectors corresponding to the minimum <span class="math inline">\(k\)</span> eigenvalues of matrix <span class="math inline">\(D^{-\frac{1}{2}}LD^{-\frac{1}{2}}\)</span> correctly fit in minimization of the above problem.</p>
+
+
+      </article>
+      <footer class="content-footer">
+        <div><strong>End of notes.</strong><p>These notes are informal teaching and study material. Mathematical derivations have been retained from the original LaTeX manuscript.</p></div>
+        <a href="#content" class="back-top">Back to top ↑</a>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
