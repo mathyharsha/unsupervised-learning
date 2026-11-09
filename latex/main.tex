@@ -1092,18 +1092,18 @@ T^{\top}T = \boldsymbol{I}
 Now the optimization problem reduces to the minimization of $trace(H^{\top}LH)$ under the constraint that $T^{\top}T = \boldsymbol{I}$. Now we can convert the objective function in terms of the variables in the constraint so that we get a familiar form. So the problem can be posed as:
 
 \begin{equation}
-min \textnormal{\quad} trace (T^{\top}D^{-\frac{1}{2}}LD^{-\frac{1}{2}}T) \textnormal{ such that } T^{\top}T = \boldsymbol{I}
+\min \quad \operatorname{trace}\!\left(T^{\top}D^{-\frac{1}{2}}LD^{-\frac{1}{2}}T\right) \quad \text{such that} \quad T^{\top}T = \boldsymbol{I}
 \end{equation}
 
 Now assuming $D^{-\frac{1}{2}}LD^{-\frac{1}{2}}=Y$, we have the minimization problem as:
 
 \begin{equation}
-min \textnormal{\quad} trace (T^{\top}YT) \textnormal{ such that } T^{\top}T = \boldsymbol{I}
+\min \quad \operatorname{trace}\!\left(T^{\top}YT\right) \quad \text{such that} \quad T^{\top}T = \boldsymbol{I}
 \end{equation}
 
 Now assuming $\boldsymbol{t}_{i}$s as the column vectors in the matrix T, the above problem can be written as:
 \begin{equation}
-min \quad \sum_{j=1}^{n} \boldsymbol{t}_{j}^{\top}Y\boldsymbol{t}_{j} \textnormal{ such that } \boldsymbol{t}_{j}^{\top}\boldsymbol{t}_{j} = 1
+\min \quad \sum_{j=1}^{n} \boldsymbol{t}_{j}^{\top}Y\boldsymbol{t}_{j} \quad \text{such that} \quad \boldsymbol{t}_{j}^{\top}\boldsymbol{t}_{j} = 1
 \end{equation}
 
 This can be easily seen that the $k$ eigenvectors corresponding to the minimum $k$ eigenvalues of matrix $D^{-\frac{1}{2}}LD^{-\frac{1}{2}}$ correctly fit in minimization of the above problem. 
